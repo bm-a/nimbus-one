@@ -467,7 +467,7 @@ func writeMinimalConfig(cfg *config.Config, rep *Report) error {
 			buf.WriteString("\n")
 		}
 	} else {
-		buf.WriteString("# Nimbus One config (auto-generated minimal defaults)\n")
+		buf.WriteString("# Nimbus-One config (auto-generated minimal defaults)\n")
 	}
 	for _, item := range want {
 		buf.WriteString(item.key + ": " + item.val + "\n")

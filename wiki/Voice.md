@@ -1,6 +1,6 @@
 # Voice: speech-to-text and text-to-speech
 
-Nimbus One talks and listens on Telegram and the web console, and in the
+Nimbus-One talks and listens on Telegram and the web console, and in the
 terminal. See [User Guide](User-Guide.md) for setup flows and
 [Agent Guide](Agent-Guide.md) for the `transcribe` / `speak` tool contracts.
 
@@ -31,5 +31,5 @@ terminal. See [User Guide](User-Guide.md) for setup flows and
   see the transcript like any message.
 - Transcription failures reply in-chat with the concrete cause and fix
   (`nimbus-one fix` topic IDs apply); nothing is dropped silently.
-- Browser mic needs HTTPS or localhost (browser policy, not Nimbus One).
+- Browser mic needs HTTPS or localhost (browser policy, not Nimbus-One).
   Server-side STT still needs one configured backend — see table above.

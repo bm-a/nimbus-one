@@ -44,7 +44,7 @@ func ListOpenRouterModels(ctx context.Context) ([]OpenRouterModel, error) {
 	if err != nil {
 		return fallbackModels(), err
 	}
-	req.Header.Set("User-Agent", "Nimbus One/1.0")
+	req.Header.Set("User-Agent", "Nimbus-One/1.0")
 	hc := &http.Client{Timeout: 20 * time.Second}
 	resp, err := hc.Do(req)
 	if err != nil {
@@ -94,7 +94,7 @@ func pingOpenRouterURL(ctx context.Context, apiKey, url string) (string, error) 
 		return "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("User-Agent", "Nimbus One/1.0")
+	req.Header.Set("User-Agent", "Nimbus-One/1.0")
 	hc := &http.Client{Timeout: 20 * time.Second}
 	resp, err := hc.Do(req)
 	if err != nil {

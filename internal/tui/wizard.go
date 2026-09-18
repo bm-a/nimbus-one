@@ -228,7 +228,7 @@ func (w *Wizard) updateKey(m tea.KeyMsg) (tea.Model, tea.Cmd) {
 // View implements tea.Model.
 func (w *Wizard) View() string {
 	var b strings.Builder
-	b.WriteString(styleTitle.Render("Nimbus One setup") + "\n\n")
+	b.WriteString(styleTitle.Render("Nimbus-One setup") + "\n\n")
 	switch w.step {
 	case 0:
 		b.WriteString("Choose a provider (↑/↓ + enter):\n\n")

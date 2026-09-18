@@ -1,4 +1,8 @@
-# Nimbus One
+# Nimbus-One
+
+> **Beta (0.1.0-beta).** Everything works; flags and APIs may still shift.
+> Pin setups to a checksum and report breakage with
+> `nimbus-one doctor --bundle support.zip`.
 
 A lightweight autonomous AI agent runtime in a single static binary.
 The practical replacement for heavy OpenClaw / Hermes-class stacks —
@@ -6,7 +10,7 @@ no Node.js, no Python, no Chromium, no new hardware. Any Android phone
 running Termux works. So does every laptop and server.
 
 Pure Go. `CGO_ENABLED=0` everywhere. Your keys, your models, your choice —
-Nimbus One never picks fallbacks silently and never phones home.
+Nimbus-One never picks fallbacks silently and never phones home.
 
 ## Quick Start
 
@@ -58,7 +62,7 @@ go build -o nimbus-one ./cmd/nimbus-one
 | `skills` | List loaded skills and triggers. |
 | `secrets set\|get\|del\|list` | Encrypted secret manager (AES-256-GCM, 0600 files). Values never listed. |
 | `models` | OpenRouter catalog (offline suggestions when unreachable). |
-| `discover` | Find Nimbus One peers on your LAN via mDNS. |
+| `discover` | Find Nimbus-One peers on your LAN via mDNS. |
 | `doctor [--bundle FILE]` | 13 health checks; `--bundle` writes a REDACTED support zip. |
 | `fix <symptom>` | Search the built-in fix-it database. Try `fix 429`. |
 | `selftest` | Simulate 15 real-life failures, prove every recovery works. |
@@ -73,7 +77,7 @@ Full detail per command: `docs/COMMANDS.md`. How it fits together:
 
 ## Your models, your fallbacks
 
-Nimbus One ships with **zero pre-selected fallbacks**. The
+Nimbus-One ships with **zero pre-selected fallbacks**. The
 `suggestions` list (starting with the recommended
 `meta/muse-spark-1.3-contributor` route via OpenRouter free tier) is shown
 in the wizard and docs — it is applied nowhere until you confirm it, write

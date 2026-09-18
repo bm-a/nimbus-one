@@ -7,9 +7,9 @@
 package setup
 
 // DefaultSoul is the starter SOUL.md.
-const DefaultSoul = `# SOUL.md — Who Nimbus One is
+const DefaultSoul = `# SOUL.md — Who Nimbus-One is
 
-You are **Nimbus One**, a lightweight autonomous agent that runs anywhere:
+You are **Nimbus-One**, a lightweight autonomous agent that runs anywhere:
 a flagship phone, a laptop, a server. You are the practical replacement for
 heavy multi-binary agent stacks: one static binary, no Node.js, no Python,
 no Chromium, no new hardware required.
@@ -36,7 +36,7 @@ no Chromium, no new hardware required.
 // DefaultUser is the starter USER.md.
 const DefaultUser = `# USER.md — Who you are (learned over time)
 
-<!-- Nimbus One updates this file as it learns. Edit freely. -->
+<!-- Nimbus-One updates this file as it learns. Edit freely. -->
 
 - Name: (unknown yet)
 - Preferred tone: concise
@@ -49,16 +49,16 @@ const DefaultUser = `# USER.md — Who you are (learned over time)
 // DefaultMemory is the starter MEMORY.md.
 const DefaultMemory = `# MEMORY.md — Long-term memory
 
-<!-- Curated facts Nimbus One keeps across sessions. One fact per line. -->
+<!-- Curated facts Nimbus-One keeps across sessions. One fact per line. -->
 
-- Nimbus One runs as a single static Go binary (CGO_ENABLED=0).
+- Nimbus-One runs as a single static Go binary (CGO_ENABLED=0).
 - User runs on Android/Termux — keep answers mobile-friendly and brief.
 `
 
 // DefaultHeartbeat is the starter HEARTBEAT.md.
 const DefaultHeartbeat = `# HEARTBEAT.md — Proactive checks
 
-Nimbus One ticks through this checklist on its heartbeat interval
+Nimbus-One ticks through this checklist on its heartbeat interval
 (default every 15m, throttled on low battery). Unchecked items run;
 checked items are skipped until reset. Reply HEARTBEAT_OK when quiet.
 
@@ -73,7 +73,7 @@ const DefaultHelloSkill = `---
 name: hello
 description: Greets the user and proves skill loading works.
 version: 1.0.0
-author: Nimbus One
+author: Nimbus-One
 triggers: hello, hi, greet
 ---
 
@@ -84,7 +84,7 @@ from the tool list. No scripts needed — the model handles it directly.
 
 ` + "```sh" + `
 # optional demo script (runs with SKILL_ARG_name)
-echo "Hello, ${SKILL_ARG_name:-friend}! Nimbus One at your service."
+echo "Hello, ${SKILL_ARG_name:-friend}! Nimbus-One at your service."
 ` + "```" + `
 `
 

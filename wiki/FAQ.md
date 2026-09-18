@@ -11,7 +11,7 @@ Short honest answers. Details: [User Guide](User-Guide.md) ·
 > `nimbus-one config`, `fallback_models`, or
 > `NIMBUS_FALLBACK_MODELS`.
 
-## 1. What is Nimbus One?
+## 1. What is Nimbus-One?
 
 A single-binary autonomous agent runtime in pure Go.
 Chat, serve, Telegram/Discord, heartbeat, skills, LAN
@@ -20,7 +20,7 @@ discovery — without Node.js, Python, or Chromium.
 ## 2. How is it different from OpenClaw / Hermes?
 
 Weight. OpenClaw/Hermes-class stacks need multiple
-runtimes and heavier hardware. Nimbus One is one static
+runtimes and heavier hardware. Nimbus-One is one static
 binary (`CGO_ENABLED=0`) that runs on any Android phone,
 laptop, or server. Ideas referenced, never copied
 (see `ATTRIBUTION.md`).
@@ -69,7 +69,7 @@ mode works fully offline. (`llm-nokeys`.)
 
 ## 8. What does it cost?
 
-Nimbus One itself: free (MIT). Model costs are yours:
+Nimbus-One itself: free (MIT). Model costs are yours:
 free tiers (OpenRouter free models, Ollama local = free),
 then per-token provider billing. No token is ever spent
 deciding where to route; cost discipline (free/local
@@ -86,7 +86,7 @@ or callbacks.
 
 ## 10. Windows / macOS supported?
 
-Yes. Data dir: `%APPDATA%/Nimbus One` (Windows),
+Yes. Data dir: `%APPDATA%/Nimbus-One` (Windows),
 `~/.config/nimbus-one` (macOS/Linux),
 `~/.nimbus-one` (Termux). Shell picks sh vs PowerShell
 by `runtime.GOOS`. Two Windows caveats: secret prompt

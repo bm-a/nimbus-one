@@ -1,4 +1,4 @@
-# Contributing to Nimbus One
+# Contributing to Nimbus-One
 
 ## Ground rules (coding ethics)
 

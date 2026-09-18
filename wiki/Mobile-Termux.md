@@ -33,7 +33,7 @@ Notes:
 
 ## Storage / RAM footprint expectations
 
-Nimbus One is one static binary, no runtimes:
+Nimbus-One is one static binary, no runtimes:
 
 - No Node.js, Python, or Chromium to install.
 - State is flat files: Markdown (`SOUL/USER/MEMORY/HEARTBEAT`),
@@ -50,7 +50,7 @@ On low-RAM phones prefer provider keys over local models.
 
 ## Wake-lock
 
-Android freezes background apps. On `serve`, Nimbus One
+Android freezes background apps. On `serve`, Nimbus-One
 calls `termux-wake-lock` automatically and releases it
 (`termux-wake-unlock`) on shutdown. Missing helper = no-op.
 
@@ -87,7 +87,7 @@ Base interval = `heartbeat_every` (`15m` default).
 
 ## Termux:API optionals
 
-All optional — Nimbus One degrades with warnings, never
+All optional — Nimbus-One degrades with warnings, never
 silent no-ops:
 
 - `termux-wake-lock` / `termux-wake-unlock` — keep serving.
@@ -101,7 +101,7 @@ Grant battery-status permission when prompted.
 
 ## Offline Ollama vs keys: cost / latency tradeoffs
 
-Your choice — Nimbus One applies nothing by itself.
+Your choice — Nimbus-One applies nothing by itself.
 
 | Route | Cost | Latency / quality | Needs |
 |---|---|---|---|

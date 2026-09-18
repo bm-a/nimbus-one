@@ -1,4 +1,4 @@
-# ARCHITECTURE — how Nimbus One fits together
+# ARCHITECTURE — how Nimbus-One fits together
 
 Single static binary (`CGO_ENABLED=0`). Request flow for one message:
 

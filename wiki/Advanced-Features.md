@@ -1,6 +1,6 @@
 # Advanced Features
 
-Beyond daily chat: the systems that make Nimbus One feel autonomous —
+Beyond daily chat: the systems that make Nimbus-One feel autonomous —
 subagents, background work, self-healing keys, the web console, and the
 proof harness. See [Agent Guide](Agent-Guide.md) for the cheat-sheet and
 [Operator Guide](Operator-Guide.md) for serve hardening.
@@ -39,7 +39,7 @@ own scratchpad over the same tools you gave the top agent — nothing more.
   bad credentials exile to Dead.
 - Total failure surfaces as a typed `ExhaustedError` → escalation card
   (new key / switch provider / retry) or, headless, diagnostics plus the
-  Nimbus One route recommendation.
+  Nimbus-One route recommendation.
 
 ## Context overflow healing
 

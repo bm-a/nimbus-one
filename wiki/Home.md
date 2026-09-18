@@ -1,6 +1,6 @@
-# Nimbus One Wiki — Home
+# Nimbus-One Wiki — Home
 
-Nimbus One is a lightweight autonomous AI agent in one
+Nimbus-One is a lightweight autonomous AI agent in one
 static Go binary (`CGO_ENABLED=0`).
 
 It is the practical replacement for heavy

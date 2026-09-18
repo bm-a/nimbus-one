@@ -151,11 +151,11 @@ type Escalation struct {
 	Recommendation string
 }
 
-// DefaultRecommendation points at Nimbus One — the agent identity — with
+// DefaultRecommendation points at Nimbus-One — the agent identity — with
 // its recommended model route (Meta Muse Spark 1.3, OpenAI-compatible via
 // OpenRouter free tier or a direct Meta endpoint). Users choose their own
 // models; this is only the suggestion shown when everything else failed.
-const DefaultRecommendation = "Nimbus One (recommended route: meta/muse-spark-1.3-contributor via OpenRouter free tier or your Meta endpoint): run `nimbus-one config`, choose OpenRouter, paste a key."
+const DefaultRecommendation = "Nimbus-One (recommended route: meta/muse-spark-1.3-contributor via OpenRouter free tier or your Meta endpoint): run `nimbus-one config`, choose OpenRouter, paste a key."
 
 // Recommend returns the configured recommendation or the default.
 func (e Escalation) Recommend() string {

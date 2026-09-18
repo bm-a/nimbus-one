@@ -3,7 +3,7 @@
 // Knowledge is the built-in fix-it database: every known failure maps to a
 // cause and a concrete fix. It powers `nimbus-one fix <symptom>`, enriches
 // `nimbus-one doctor` output, and is mirrored in docs/TROUBLESHOOTING.md for AI
-// coding agents (OpenCode, Nimbus One itself) that work in this repo.
+// coding agents (OpenCode, Nimbus-One itself) that work in this repo.
 package doctor
 
 import (
@@ -27,7 +27,7 @@ var Knowledge = []Entry{
 		ID:       "llm-401",
 		Keywords: []string{"401", "unauthorized", "invalid key", "rejected", "forbidden key", "bad key"},
 		Title:    "Provider rejects the API key (401/403)",
-		Cause:    "The key is wrong, revoked, or pasted with extra whitespace. Nimbus One marks the key Dead and never retries it silently.",
+		Cause:    "The key is wrong, revoked, or pasted with extra whitespace. Nimbus-One marks the key Dead and never retries it silently.",
 		Fix:      "Replace the key. The wizard validates live before saving.",
 		Commands: []string{"nimbus-one config", "nimbus-one secrets set openrouter <key>", "nimbus-one run \"hello\""},
 	},
@@ -35,7 +35,7 @@ var Knowledge = []Entry{
 		ID:       "llm-429",
 		Keywords: []string{"429", "rate limit", "rate-limited", "too many requests", "cooling"},
 		Title:    "Rate limited (429) — keys cooling down",
-		Cause:    "Free tiers throttle aggressively. Nimbus One already moved traffic to the next key and the hot key rejoins automatically after Retry-After.",
+		Cause:    "Free tiers throttle aggressively. Nimbus-One already moved traffic to the next key and the hot key rejoins automatically after Retry-After.",
 		Fix:      "Wait, or add a second key for the same provider so the pool has somewhere to go. Spreading models across providers helps more than retrying.",
 		Commands: []string{"nimbus-one dashboard", "nimbus-one secrets set openrouter <second-key>", "nimbus-one config"},
 	},
@@ -43,7 +43,7 @@ var Knowledge = []Entry{
 		ID:       "llm-5xx",
 		Keywords: []string{"500", "502", "503", "504", "outage", "server error", "service unavailable", "overloaded"},
 		Title:    "Provider outage (5xx)",
-		Cause:    "The provider side is failing. Nimbus One trips the circuit breaker after 3 consecutive failures and fails over to your next fallback tier.",
+		Cause:    "The provider side is failing. Nimbus-One trips the circuit breaker after 3 consecutive failures and fails over to your next fallback tier.",
 		Fix:      "Check the provider status page. If prolonged, reorder fallbacks so a healthy provider is first.",
 		Commands: []string{"nimbus-one status", "nimbus-one config"},
 	},
@@ -51,7 +51,7 @@ var Knowledge = []Entry{
 		ID:       "llm-overflow",
 		Keywords: []string{"context", "too long", "tokens", "max_tokens", "context length", "overflow"},
 		Title:    "Context overflow — history too long",
-		Cause:    "The conversation exceeded the model's window. Nimbus One auto-compacts the oldest 30% and resends (up to 2 heals per step).",
+		Cause:    "The conversation exceeded the model's window. Nimbus-One auto-compacts the oldest 30% and resends (up to 2 heals per step).",
 		Fix:      "No action needed normally. If it recurs, start a fresh session — huge tool outputs (logs, dumps) are the usual cause; ask for summaries instead of full dumps.",
 		Commands: []string{"nimbus-one run \"summarize our progress so far\""},
 	},
@@ -59,8 +59,8 @@ var Knowledge = []Entry{
 		ID:       "llm-nokeys",
 		Keywords: []string{"no keys", "no usable keys", "exhausted", "no backend", "no provider"},
 		Title:    "No usable LLM backend",
-		Cause:    "No provider keys configured and local Ollama unreachable. Nimbus One refuses to guess — it tells you instead.",
-		Fix:      "Recommended: OpenRouter + Meta Muse 1.3 (free tier). Or run Ollama locally for a fully offline setup. Your choice — Nimbus One applies nothing by itself.",
+		Cause:    "No provider keys configured and local Ollama unreachable. Nimbus-One refuses to guess — it tells you instead.",
+		Fix:      "Recommended: OpenRouter + Meta Muse 1.3 (free tier). Or run Ollama locally for a fully offline setup. Your choice — Nimbus-One applies nothing by itself.",
 		Commands: []string{"nimbus-one config", "nimbus-one auto", "ollama pull llama3.1"},
 	},
 	{
@@ -76,7 +76,7 @@ var Knowledge = []Entry{
 		Keywords: []string{"opencode", "sidecar", "not found opencode"},
 		Title:    "OpenCode sidecar unavailable",
 		Cause:    "The `opencode` binary isn't on PATH, so heavy repo refactors can't delegate.",
-		Fix:      "Install OpenCode, or keep working — Nimbus One's own tools cover everything except giant multi-file refactors. Correct headless form is `opencode run --format json \"task\"` (verified against 1.18.x; -p means --password there, not prompt).",
+		Fix:      "Install OpenCode, or keep working — Nimbus-One's own tools cover everything except giant multi-file refactors. Correct headless form is `opencode run --format json \"task\"` (verified against 1.18.x; -p means --password there, not prompt).",
 		Commands: []string{"opencode --version", "opencode run --format json \"hello\""},
 	},
 	{
@@ -99,7 +99,7 @@ var Knowledge = []Entry{
 		ID:       "http-port",
 		Keywords: []string{"port in use", "address already in use", "bind", "8787"},
 		Title:    "HTTP port already in use",
-		Cause:    "Another Nimbus One (or app) holds the port.",
+		Cause:    "Another Nimbus-One (or app) holds the port.",
 		Fix:      "Stop the other instance, or pick another port in config.yaml (http_port) and restart.",
 		Commands: []string{"nimbus-one doctor"},
 	},
@@ -107,7 +107,7 @@ var Knowledge = []Entry{
 		ID:       "http-lan-token",
 		Keywords: []string{"lan token", "refusing to serve", "http_token", "bearer"},
 		Title:    "LAN serve refused without token",
-		Cause:    "Binding a non-loopback address without an HTTP token would expose your agent to the whole network. Nimbus One refuses instead of risking it.",
+		Cause:    "Binding a non-loopback address without an HTTP token would expose your agent to the whole network. Nimbus-One refuses instead of risking it.",
 		Fix:      "Store a token (auto mode generates one) or bind 127.0.0.1 for local-only use.",
 		Commands: []string{"nimbus-one secrets set http_token <random>", "nimbus-one auto"},
 	},
@@ -130,8 +130,8 @@ var Knowledge = []Entry{
 	{
 		ID:       "termux-wake",
 		Keywords: []string{"wake", "sleep", "background", "killed", "termux suspends"},
-		Title:    "Android suspends Nimbus One in background",
-		Cause:    "Android freezes background apps. Nimbus One takes termux-wake-lock on serve, but the OS can still kill it.",
+		Title:    "Android suspends Nimbus-One in background",
+		Cause:    "Android freezes background apps. Nimbus-One takes termux-wake-lock on serve, but the OS can still kill it.",
 		Fix:      "Acquire Termux:API wake lock, disable battery optimization for Termux, and prefer a foreground session (or tmux) for long serves.",
 		Commands: []string{"termux-wake-lock", "nimbus-one serve"},
 	},
@@ -147,7 +147,7 @@ var Knowledge = []Entry{
 		ID:       "mcp-fail",
 		Keywords: []string{"mcp", "stdio", "sse", "tool server", "external tools"},
 		Title:    "MCP server won't connect",
-		Cause:    "Binary missing, wrong args, or the server speaks SSE while Nimbus One dialed stdio (or vice versa).",
+		Cause:    "Binary missing, wrong args, or the server speaks SSE while Nimbus-One dialed stdio (or vice versa).",
 		Fix:      "Run the server command by hand first and watch its first lines — MCP servers must stay alive on stdio. Check version skew between client and server.",
 		Commands: []string{"nimbus-one doctor"},
 	},
@@ -163,7 +163,7 @@ var Knowledge = []Entry{
 		ID:       "net-timeout",
 		Keywords: []string{"timeout", "network", "unreachable", "dns", "eof"},
 		Title:    "Network timeouts talking to providers",
-		Cause:    "Flaky mobile data, VPN, or captive portals. Nimbus One retries transient drops 3x with backoff+jitter automatically.",
+		Cause:    "Flaky mobile data, VPN, or captive portals. Nimbus-One retries transient drops 3x with backoff+jitter automatically.",
 		Fix:      "Retry once; if persistent, switch networks or fall back to local Ollama until it clears.",
 		Commands: []string{"nimbus-one run \"hello\"", "nimbus-one doctor"},
 	},

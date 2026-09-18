@@ -51,10 +51,10 @@ func DefaultDataDir() string {
 	switch runtime.GOOS {
 	case "windows":
 		if appdata := os.Getenv("APPDATA"); appdata != "" {
-			return filepath.Join(appdata, "Nimbus One")
+			return filepath.Join(appdata, "Nimbus-One")
 		}
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, "AppData", "Roaming", "Nimbus One")
+		return filepath.Join(home, "AppData", "Roaming", "Nimbus-One")
 	case "darwin":
 		home, _ := os.UserHomeDir()
 		return filepath.Join(home, ".config", "nimbus-one")
@@ -230,7 +230,7 @@ func Load() (*Config, error) {
 }
 
 // Save writes the user-editable settings back to config.yaml. It only
-// manages keys Nimbus One itself owns; unknown keys and comments in the file
+// manages keys Nimbus-One itself owns; unknown keys and comments in the file
 // are preserved by rewriting managed lines in place.
 func (c *Config) Save() error {
 	managed := map[string]string{

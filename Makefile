@@ -1,4 +1,4 @@
-# Nimbus One — single-binary agent runtime.
+# Nimbus-One — single-binary agent runtime.
 # Everything is CGO_ENABLED=0 (no C compiler needed anywhere, Termux included).
 
 BINARY   := nimbus-one

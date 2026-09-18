@@ -1,6 +1,6 @@
 # USER.md — Who you are (learned over time)
 
-<!-- Nimbus One updates this file as it learns. Edit freely. -->
+<!-- Nimbus-One updates this file as it learns. Edit freely. -->
 
 - Name: (unknown yet)
 - Preferred tone: concise

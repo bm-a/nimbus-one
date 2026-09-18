@@ -1,5 +1,5 @@
 #!/bin/sh
-# Nimbus One universal installer — Termux / Linux / macOS.
+# Nimbus-One universal installer — Termux / Linux / macOS.
 # Inspect first, then run:  sh install.sh [--yes] [--dir DIR] [--repo OWNER/NAME] [--skip-go] [--no-init]
 # No blind pipes: download this file (or clone the repo) and read it before executing.
 # Idempotent: safe to re-run; it repairs instead of duplicating.

@@ -1,6 +1,6 @@
 # HEARTBEAT.md — Proactive checks
 
-Nimbus One ticks through this checklist on its heartbeat interval
+Nimbus-One ticks through this checklist on its heartbeat interval
 (default every 15m, throttled on low battery). Unchecked items run;
 checked items are skipped until reset. Reply HEARTBEAT_OK when quiet.
 

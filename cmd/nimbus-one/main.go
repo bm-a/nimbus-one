@@ -40,7 +40,7 @@ import (
 	"nimbus-one/internal/update"
 )
 
-const version = "0.1.0"
+const version = "0.1.0-beta"
 
 func main() {
 	// Code-level safety net: any panic becomes a redacted report pointing
@@ -132,7 +132,7 @@ MANAGE
   secrets set|get|del|list <key>
                        Encrypted secret manager (values never listed).
   models               List OpenRouter models (works offline via fallback).
-  discover             Find Nimbus One peers on your LAN (mDNS, 5s scan).
+  discover             Find Nimbus-One peers on your LAN (mDNS, 5s scan).
   doctor [--bundle FILE]
                        Diagnose setup; --bundle writes a redacted support zip.
   update [--yes] [--repo OWNER/NAME]

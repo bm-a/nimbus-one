@@ -24,7 +24,7 @@ func TestConsoleHTMLViewportAndNoLeak(t *testing.T) {
 		"localStorage",
 		"<form",
 		"<noscript",
-		"Nimbus One",
+		"Nimbus-One",
 	} {
 		if !strings.Contains(ConsoleHTML, want) {
 			t.Fatalf("ConsoleHTML missing %q", want)
@@ -55,7 +55,7 @@ func TestConsoleHTMLViewportAndNoLeak(t *testing.T) {
 	if strings.Contains(bs, "super-secret-xyz-123") {
 		t.Fatalf("console body leaks server token")
 	}
-	if !strings.Contains(bs, "Nimbus One") {
+	if !strings.Contains(bs, "Nimbus-One") {
 		t.Fatalf("console body missing default title")
 	}
 }

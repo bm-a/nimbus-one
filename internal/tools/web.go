@@ -20,8 +20,8 @@ const WebFetchLimit = 15 * 1024
 // DefaultWebTimeout applies to web tools when unset.
 const DefaultWebTimeout = 30 * time.Second
 
-// webUserAgent identifies Nimbus One HTTP requests.
-const webUserAgent = "Nimbus One/1.0"
+// webUserAgent identifies Nimbus-One HTTP requests.
+const webUserAgent = "Nimbus-One/1.0"
 
 // FetchTool fetches a URL and returns its text content.
 type FetchTool struct {

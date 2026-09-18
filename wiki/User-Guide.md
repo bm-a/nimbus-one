@@ -1,6 +1,6 @@
 # User Guide
 
-For humans using Nimbus One daily.
+For humans using Nimbus-One daily.
 Operators: see [Operator Guide](Operator-Guide.md).
 Agents: see [Agent Guide](Agent-Guide.md).
 Phones: see [Mobile Termux](Mobile-Termux.md).
@@ -35,7 +35,7 @@ Where things live:
 
 - Termux: `~/.nimbus-one`
 - Linux/macOS: `~/.config/nimbus-one` (or `$XDG_CONFIG_HOME/nimbus-one`)
-- Windows: `%APPDATA%/Nimbus One`
+- Windows: `%APPDATA%/Nimbus-One`
 - Override any platform: `NIMBUS_DATA_DIR=/path/to/dir`
 
 Inside the data dir: `config.yaml`, `vault.key`,

@@ -1,4 +1,4 @@
-// Package netdiscover advertises and discovers the Nimbus One HTTP gateway on
+// Package netdiscover advertises and discovers the Nimbus-One HTTP gateway on
 // the LAN via mDNS/DNS-SD (`_nimbus._tcp.local`) using only the Go standard
 // library (no Cgo, no third-party deps).
 //
@@ -30,7 +30,7 @@ const (
 	mdnsIPv4Addr = "224.0.0.251:5353"
 	mdnsIPv6Addr = "[ff02::fb]:5353"
 
-	// Default DNS-SD identifiers for Nimbus One.
+	// Default DNS-SD identifiers for Nimbus-One.
 	defaultService = "_nimbus._tcp"
 	defaultDomain  = "local"
 

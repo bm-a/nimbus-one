@@ -1,4 +1,4 @@
-# Nimbus One installer — Windows (PowerShell 5.1+).
+# Nimbus-One installer — Windows (PowerShell 5.1+).
 # Inspect first, then run from the repo root (or any dir for net install):
 #   powershell -ExecutionPolicy Bypass -File install.ps1 [-Yes] [-Dir DIR] [-Repo OWNER/NAME] [-SkipGo] [-NoInit]
 # Idempotent: safe to re-run; it repairs instead of duplicating.

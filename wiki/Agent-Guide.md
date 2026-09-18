@@ -122,7 +122,7 @@ Strict shape (Hermes-strict) also accepted:
 name: hello
 description: Greets the user and proves skill loading works.
 version: 1.0.0
-author: Nimbus One
+author: Nimbus-One
 triggers: hello, hi, greet
 params:
   name:

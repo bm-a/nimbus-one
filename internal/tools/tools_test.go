@@ -46,6 +46,28 @@ func TestRegisterBuiltinsNames(t *testing.T) {
 	}
 }
 
+func TestRelativePathsResolveToWorkspace(t *testing.T) {
+	dir := t.TempDir()
+	allow := []string{dir}
+	ctx := context.Background()
+	w := &WriteTool{AllowDirs: allow}
+	if _, err := w.Execute(ctx, map[string]any{"path": "rel.txt", "content": "x"}); err != nil {
+		t.Fatalf("relative write: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rel.txt")); err != nil {
+		t.Fatalf("relative path must land in workspace: %v", err)
+	}
+	l := &ListTool{AllowDirs: allow}
+	out, err := l.Execute(ctx, map[string]any{"path": "."})
+	if err != nil || !strings.Contains(out, "rel.txt") {
+		t.Fatalf("list . must show workspace: out=%q err=%v", out, err)
+	}
+	// Escape still rejected.
+	if _, err := w.Execute(ctx, map[string]any{"path": "../escape.txt", "content": "x"}); err == nil {
+		t.Fatal("path escape must be rejected")
+	}
+}
+
 func TestReadWriteListRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 	allow := []string{dir}

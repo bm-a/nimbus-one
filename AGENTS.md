@@ -7,7 +7,7 @@ maintainer. Human operator manual lives in `docs/`; command reference in
 
 ## What this is
 
-Nimbus One is a single-binary autonomous agent runtime in pure Go
+Nimbus-One is a single-binary autonomous agent runtime in pure Go
 (`CGO_ENABLED=0` always). Positioned as the lightweight replacement for
 OpenClaw/Hermes-class stacks: runs on any Android phone, laptop, or server
 with no Node.js, Python, Chromium, or new hardware.

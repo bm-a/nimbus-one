@@ -65,7 +65,7 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View implements tea.Model.
 func (d *Dashboard) View() string {
 	var b strings.Builder
-	b.WriteString(styleTitle.Render("Nimbus One key health") + styleDim.Render("  (q to quit)") + "\n\n")
+	b.WriteString(styleTitle.Render("Nimbus-One key health") + styleDim.Render("  (q to quit)") + "\n\n")
 	if len(d.stats) == 0 {
 		b.WriteString(styleWarn.Render("no keys configured — run `nimbus-one config`") + "\n")
 		return b.String()

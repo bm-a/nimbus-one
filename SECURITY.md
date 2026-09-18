@@ -2,7 +2,7 @@
 
 ## Scope
 
-Nimbus One is local-first: keys live encrypted on your disk, traffic goes
+Nimbus-One is local-first: keys live encrypted on your disk, traffic goes
 only to providers you configured. The attack surface that matters: the
 HTTP API, Telegram/Discord bots, skill scripts, and MCP servers.
 

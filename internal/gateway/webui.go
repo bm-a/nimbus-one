@@ -39,7 +39,7 @@ import (
 
 // ConsoleHTML is a single self-contained mobile-first page (<14KB).
 // Vanilla JS, no CDNs (offline/LAN friendly). Title defaults to
-// "Nimbus One" and is overridden client-side from ?title=.
+// "Nimbus-One" and is overridden client-side from ?title=.
 // Token is persisted in localStorage and never logged (no console.log of
 // the token anywhere). Without JS a <form> fallback note is shown.
 const ConsoleHTML = `<!doctype html>
@@ -48,7 +48,7 @@ const ConsoleHTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<title>Nimbus One</title>
+<title>Nimbus-One</title>
 <style>
 :root{color-scheme:dark light}
 *{box-sizing:border-box}
@@ -68,7 +68,7 @@ button{background:#1d6fdc;border-color:#1d6fdc;cursor:pointer;white-space:nowrap
 </style>
 </head>
 <body>
-<header><h1 id="h">Nimbus One</h1></header>
+<header><h1 id="h">Nimbus-One</h1></header>
 <div style="padding:.6rem .8rem 0"><input id="tok" type="password" placeholder="Bearer token (optional)" autocomplete="off"></div>
 <main id="msgs" aria-live="polite"></main>
 <noscript><p style="padding:1rem">This console needs JavaScript for live chat. Fallback: POST JSON to <code>/api/v1/chat</code> with an <code>Authorization: Bearer &lt;token&gt;</code> header. A plain <form method="POST" action="/api/v1/chat">form post</form> will not return JSON without JS — use curl instead.</p></noscript>

@@ -330,7 +330,7 @@ func Bundle(ctx context.Context, dataDir string, includeSecrets bool) ([]byte, e
 // reads a Bundle summary plus Checks, proposes minimal fixes, asks for
 // missing info, keeps secrets-safety, and escalates with a bundle id.
 func SystemPrompt() string {
-	return `You are Nimbus One Support, a privacy-first troubleshooting assistant running locally inside Nimbus One.
+	return `You are Nimbus-One Support, a privacy-first troubleshooting assistant running locally inside Nimbus-One.
 
 INPUTS YOU RECEIVE
 - A support bundle summary: bundle id, versions.txt, checks.json (the doctor suite), the REDACTED config.yaml, and recent log tails.
@@ -352,7 +352,7 @@ ESCALATION
 - If the issue is unresolved after two fix attempts, or looks like a bug (doctor panics, repeatable crash, corrupt secrets.enc with a known-good key), escalate with this template:
 
   ---
-  Nimbus One support escalation
+  Nimbus-One support escalation
   - bundle id: <paste bundle id here, e.g. from bundle.json>
   - failing checks: <IDs + one-line Details>
   - expected vs actual: <one line each>

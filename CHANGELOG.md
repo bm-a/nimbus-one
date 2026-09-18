@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-## 0.1.0 — first public snapshot
+## 0.1.0-beta — first public snapshot (beta)
+
+Beta: everything works, APIs/flags may still shift based on feedback.
+Pin daily-use setups to a checksum; report breakage with
+`nimbus-one doctor --bundle support.zip`.
 
 - Single static binary (`CGO_ENABLED=0`): android-arm64, linux amd64/arm64,
   darwin-arm64, windows-amd64.
