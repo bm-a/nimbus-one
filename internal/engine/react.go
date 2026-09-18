@@ -167,6 +167,7 @@ func (e *Engine) executeWithRetries(ctx context.Context, tc llm.ToolCall, mode s
 	} else if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
 		return fmt.Sprintf("tool %q failed: invalid JSON arguments: %v (arguments were: %s)", tc.Name, err, tc.Arguments)
 	}
+	debugf("tool call %s(%s)", tc.Name, tc.Arguments)
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
 		if ctx.Err() != nil {

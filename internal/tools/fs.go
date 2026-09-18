@@ -21,7 +21,9 @@ const SearchCap = 50
 var errSearchCap = errors.New("search: result cap reached")
 
 // resolveWithinAllow cleans p and enforces containment in allow when set.
-// With empty allow it requires a non-empty absolute path.
+// Relative paths resolve against allow[0] (the workspace), so agent-side
+// "list ." means the workspace — not whatever directory the binary was
+// launched from. With empty allow it requires a non-empty absolute path.
 func resolveWithinAllow(p string, allow []string) (string, error) {
 	if strings.TrimSpace(p) == "" {
 		return "", fmt.Errorf("empty path")
@@ -29,7 +31,11 @@ func resolveWithinAllow(p string, allow []string) (string, error) {
 	if strings.ContainsRune(p, 0) {
 		return "", fmt.Errorf("invalid path")
 	}
-	abs, err := filepath.Abs(filepath.Clean(p))
+	base := ""
+	if len(allow) > 0 && !filepath.IsAbs(p) {
+		base = allow[0]
+	}
+	abs, err := filepath.Abs(filepath.Join(base, filepath.Clean(p)))
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", p, err)
 	}
@@ -61,7 +67,7 @@ func (t *ReadTool) Name() string { return "read" }
 
 // Description describes the read tool.
 func (t *ReadTool) Description() string {
-	return "Read a file (max 100KB). Args: path (required), offset (bytes, default 0), limit (bytes, default 102400)."
+	return "Read a file in YOUR workspace (max 100KB, always allowed there). Args: path (required, relative paths resolve inside the workspace), offset (bytes, default 0), limit (bytes, default 102400). Never claim inability without calling first."
 }
 
 // Parameters describes the read arguments.
@@ -141,7 +147,7 @@ func (t *WriteTool) Name() string { return "write" }
 
 // Description describes the write tool.
 func (t *WriteTool) Description() string {
-	return "Write content to a file (creates parent dirs). Args: path (required), content (required)."
+	return "Write content to a file in YOUR workspace (creates parent dirs, always allowed there). Args: path (required), content (required). Never claim inability without calling first."
 }
 
 // Parameters describes the write arguments.
@@ -193,7 +199,7 @@ func (t *ListTool) Name() string { return "list" }
 
 // Description describes the list tool.
 func (t *ListTool) Description() string {
-	return "List a directory. Args: path (required directory)."
+	return "List YOUR workspace directory (always allowed — use path \".\" for the workspace root). Args: path (required directory, relative paths resolve inside the workspace). Never claim inability without calling first."
 }
 
 // Parameters describes the list arguments.
@@ -249,7 +255,7 @@ func (t *SearchTool) Name() string { return "search" }
 
 // Description describes the search tool.
 func (t *SearchTool) Description() string {
-	return "Search filenames and file contents (case-sensitive substring, max 50 results). Args: root (directory), query|pattern (required), content (search file contents, default true)."
+	return "Search YOUR workspace filenames and contents (case-sensitive substring, max 50 results, always allowed). Args: root (directory, use \".\" for workspace), query|pattern (required), content (search contents, default true). Never claim inability without calling first."
 }
 
 // Parameters describes the search arguments.

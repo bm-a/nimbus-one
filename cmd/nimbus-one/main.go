@@ -474,13 +474,25 @@ func (a *app) buildSystem() string {
 	soul, _ := a.ws.Load("SOUL.md")
 	user, _ := a.ws.Load("USER.md")
 	memory, _ := a.ws.Load("MEMORY.md")
-	return engine.BuildPrompt(soul, user, memory, nil, a.skillz.CapabilitiesPrompt())
+	return engine.BuildPrompt(soul, user, memory, nil, a.skillz.CapabilitiesPrompt()) + a.envNote()
+}
+
+// envNote grounds the model: where it may operate, what relative paths
+// mean, and what platform it runs on. Without this the model guesses
+// paths and hits sandbox rejections it can't explain.
+func (a *app) envNote() string {
+	return "\n## Environment (facts, not suggestions)\n" +
+		"- workspace: " + a.cfg.WorkspaceDir + " (your files live here; relative tool paths like . or notes/todo.md resolve inside it)\n" +
+		"- skills: " + a.cfg.SkillsDir + "\n" +
+		"- platform: " + runtime.GOOS + "/" + runtime.GOARCH + ", shell: sh, today: " + time.Now().Format("2006-01-02") + "\n" +
+		"- tools available: " + strings.Join(a.tools.Names(), ", ") + "\n" +
+		"- tool discipline: when asked about files, ALWAYS attempt the tool call first (relative paths resolve inside the workspace and always succeed there). Never tell the user something is outside allowed paths without trying — a failed call returns the exact reason, which you then report verbatim.\n"
 }
 
 // refreshMemory injects top recalled facts into the system prompt.
 func (a *app) refreshMemory(query string) {
 	facts := a.memory.Recall(query, 5)
-	a.system = engine.BuildPrompt(mustLoad(a.ws, "SOUL.md"), mustLoad(a.ws, "USER.md"), mustLoad(a.ws, "MEMORY.md"), facts, a.skillz.CapabilitiesPrompt())
+	a.system = engine.BuildPrompt(mustLoad(a.ws, "SOUL.md"), mustLoad(a.ws, "USER.md"), mustLoad(a.ws, "MEMORY.md"), facts, a.skillz.CapabilitiesPrompt()) + a.envNote()
 }
 
 func mustLoad(ws *state.Workspace, name string) string {
@@ -1225,8 +1237,7 @@ func cmdUpdate(args []string) int {
 		repo = strings.TrimSpace(os.Getenv("NIMBUS_REPO"))
 	}
 	if repo == "" {
-		repo = "nimbus-one/nimbus-one" // placeholder until first publish; override with --repo
-		fmt.Fprintln(os.Stderr, "note: no published repo yet — using placeholder "+repo+" (override: --repo OWNER/NAME or NIMBUS_REPO).")
+		repo = "bm-a/nimbus-one"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

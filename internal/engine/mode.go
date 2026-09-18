@@ -8,6 +8,8 @@
 package engine
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -40,6 +42,16 @@ func NormalizeMode(m string) string {
 
 // IsReadOnlyTool reports whether a tool may run in plan mode.
 func IsReadOnlyTool(name string) bool { return readOnlyTools[name] }
+
+// debugf prints tool-call traces to stderr when NIMBUS_DEBUG is set.
+// Permanent support tap: `NIMBUS_DEBUG=1 nimbus-one run ...` shows every
+// tool name + JSON args so path/sandbox rejections become explainable.
+func debugf(format string, args ...any) {
+	if os.Getenv("NIMBUS_DEBUG") == "" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "debug: "+format+"\n", args...)
+}
 
 // modeMu guards process-wide mode switches (e.g. REPL /mode) so concurrent
 // runs observe a consistent value.
