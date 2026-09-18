@@ -1,0 +1,26 @@
+# Binaries and build output
+aether
+aether.exe
+dist/
+
+# Go module cache artifacts (not the code)
+*.test
+*.out
+
+# Local dev / smoke-test dirs
+tmp/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Secrets — never commit these
+vault.key
+secrets.enc
+config.yaml
+auth.json
+*.key
+*.pem
+.env
