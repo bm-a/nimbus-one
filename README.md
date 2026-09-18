@@ -1,6 +1,6 @@
 # Nimbus-One
 
-[![CI](https://github.com/bm-a/Nimbus-One/actions/workflows/ci.yml/badge.svg)](https://github.com/bm-a/nimbus-one/actions)
+[![CI](https://github.com/bm-a/nimbus-one/actions/workflows/ci.yml/badge.svg)](https://github.com/bm-a/nimbus-one/actions)
 
 > **Beta (0.1.0-beta).** Everything works; flags and APIs may still shift.
 > Pin setups to a checksum and report breakage with

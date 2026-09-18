@@ -4,6 +4,7 @@
 package secure
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -29,32 +30,50 @@ func DeriveKey(material string) []byte {
 	return sum[:]
 }
 
-// LoadVault returns a vault backed by NIMBUS_VAULT_KEY or dataDir/vault.key
-// (0600, created once). If neither exists it creates the key file, so
-// encryption is on by default without any user action.
-func LoadVault(dataDir string) (*Vault, error) {
+// ReadKeyFile loads key bytes WITHOUT creating anything (diagnostics and
+// read-only callers). Format: env NIMBUS_VAULT_KEY (base64 32B or text),
+// hex-encoded vault.key (64 chars), legacy raw 32 bytes, else SHA-256 of
+// trimmed content. Same parsing as LoadVault — the single source of truth.
+func ReadKeyFile(dataDir string) ([]byte, error) {
 	if env := os.Getenv("NIMBUS_VAULT_KEY"); env != "" {
-		raw := env
 		if decoded, err := base64.StdEncoding.DecodeString(env); err == nil && len(decoded) == 32 {
-			return &Vault{key: decoded, Enabled: true}, nil
+			return decoded, nil
 		}
-		return &Vault{key: DeriveKey(raw), Enabled: true}, nil
+		return DeriveKey(env), nil
+	}
+	data, err := os.ReadFile(filepath.Join(dataDir, "vault.key"))
+	if err != nil {
+		return nil, err
+	}
+	if hexed := strings.TrimSpace(string(data)); len(hexed) == 64 {
+		if raw, err := hex.DecodeString(hexed); err == nil {
+			return raw, nil
+		}
+	}
+	if len(data) == 32 {
+		return data, nil
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return nil, fmt.Errorf("vault: empty key file")
+	}
+	return DeriveKey(strings.TrimSpace(string(data))), nil
+}
+
+// LoadVault returns a vault backed by NIMBUS_VAULT_KEY or dataDir/vault.key
+// (0600, created once). Missing/empty key files are (re)created, so
+// encryption is on by default without any user action. A present but
+// undecodable key file is surfaced as an error and NEVER silently replaced.
+func LoadVault(dataDir string) (*Vault, error) {
+	if key, err := ReadKeyFile(dataDir); err == nil {
+		return &Vault{key: key, Enabled: true}, nil
 	}
 	keyPath := filepath.Join(dataDir, "vault.key")
-	if data, err := os.ReadFile(keyPath); err == nil {
-		// New format: hex (64 chars, whitespace-proof). Legacy: raw 32
-		// bytes. Anything else: derive deterministically so the same file
-		// always yields the same key (random keys must never change shape
-		// between loads — that was a real decryption-flake bug).
-		if hexed := strings.TrimSpace(string(data)); len(hexed) == 64 {
-			if raw, err := hex.DecodeString(hexed); err == nil {
-				return &Vault{key: raw, Enabled: true}, nil
-			}
+	if info, serr := os.Stat(keyPath); serr == nil && info.Size() > 0 {
+		if key, rerr := ReadKeyFile(dataDir); rerr == nil {
+			return &Vault{key: key, Enabled: true}, nil
+		} else {
+			return nil, fmt.Errorf("vault: key file present but unusable: %w", rerr)
 		}
-		if len(data) == 32 {
-			return &Vault{key: data, Enabled: true}, nil
-		}
-		return &Vault{key: DeriveKey(strings.TrimSpace(string(data))), Enabled: true}, nil
 	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {

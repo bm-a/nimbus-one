@@ -9,7 +9,31 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"nimbus-one/internal/secure"
 )
+
+func TestSecretsCheckAgreesWithVault(t *testing.T) {
+	// Regression: doctor must use the same key parsing as the vault or a
+	// fresh install reports its own secrets as corrupt.
+	dir := t.TempDir()
+	v, err := secure.LoadVault(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := secure.OpenSecrets(dir, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Set("probe", "value"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range Run(testCtx(t), dir) {
+		if c.ID == "secrets" && c.Status == StatusFail {
+			t.Fatalf("fresh vault reported corrupt: %s", c.Detail)
+		}
+	}
+}
 
 func testCtx(t *testing.T) context.Context {
 	t.Helper()

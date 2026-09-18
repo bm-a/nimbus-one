@@ -1250,6 +1250,10 @@ func cmdUpdate(args []string) int {
 	ucfg := update.Config{Repo: repo, Current: version, DataDir: cfg.DataDir, BinPath: bin}
 	latest, _, err := update.LatestRelease(ctx, ucfg)
 	if err != nil {
+		if strings.Contains(err.Error(), " 404") {
+			fmt.Fprintln(os.Stderr, "update: no releases published yet — build from source: git pull && make build.")
+			return 1
+		}
 		fmt.Fprintf(os.Stderr, "update: release check failed (%v) — offline? Try again on Wi-Fi, or build from source: git pull && make build.\n", secure.Redact(err.Error()))
 		return 1
 	}

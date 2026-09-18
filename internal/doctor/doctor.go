@@ -16,8 +16,6 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -29,6 +27,7 @@ import (
 	"time"
 
 	"nimbus-one/internal/config"
+	"nimbus-one/internal/secure"
 )
 
 // Check statuses.
@@ -274,37 +273,16 @@ func checkConfig(_ context.Context, dataDir string) Check {
 		Detail: fmt.Sprintf("config.yaml parsed (%d bytes)", len(data))}
 }
 
-// deriveKey normalizes key material to 32 bytes, mirroring internal/secure.
-func deriveKey(material string) []byte {
-	sum := sha256.Sum256([]byte(material))
-	out := make([]byte, 32)
-	copy(out, sum[:])
-	return out
-}
-
 // verifyKey resolves the vault key read-only (never creates files, unlike
-// secure.LoadVault which auto-generates a missing key).
+// secure.LoadVault which auto-generates a missing key). Parsing lives in
+// secure.ReadKeyFile — the single source of truth, so doctor can never
+// disagree with the vault about key formats.
 func verifyKey(dataDir string) ([]byte, bool) {
-	if env := os.Getenv("NIMBUS_VAULT_KEY"); env != "" {
-		if decoded, err := base64.StdEncoding.DecodeString(env); err == nil && len(decoded) == 32 {
-			return decoded, true
-		}
-		return deriveKey(env), true
-	}
-	data, err := os.ReadFile(filepath.Join(dataDir, "vault.key"))
+	key, err := secure.ReadKeyFile(dataDir)
 	if err != nil {
 		return nil, false
 	}
-	k := bytes.TrimSpace(data)
-	if len(k) == 0 {
-		return nil, false
-	}
-	if len(k) == 32 {
-		out := make([]byte, 32)
-		copy(out, k)
-		return out, true
-	}
-	return deriveKey(string(k)), true
+	return key, true
 }
 
 func decryptBlob(key, blob []byte) error {
