@@ -31,6 +31,7 @@ import (
 	"nimbus-one/internal/media"
 	"nimbus-one/internal/netdiscover"
 	"nimbus-one/internal/perms"
+	"nimbus-one/internal/prompt"
 	"nimbus-one/internal/secure"
 	"nimbus-one/internal/selftest"
 	"nimbus-one/internal/session"
@@ -40,6 +41,7 @@ import (
 	"nimbus-one/internal/tools"
 	"nimbus-one/internal/tui"
 	"nimbus-one/internal/update"
+	"nimbus-one/internal/vcs"
 )
 
 const version = "0.1.0-beta"
@@ -476,25 +478,26 @@ func (a *app) buildSystem() string {
 	soul, _ := a.ws.Load("SOUL.md")
 	user, _ := a.ws.Load("USER.md")
 	memory, _ := a.ws.Load("MEMORY.md")
-	return engine.BuildPrompt(soul, user, memory, nil, a.skillz.CapabilitiesPrompt()) + a.envNote()
+	return a.assemblePrompt(engine.BuildPrompt(soul, user, memory, nil, a.skillz.CapabilitiesPrompt()))
 }
 
-// envNote grounds the model: where it may operate, what relative paths
-// mean, and what platform it runs on. Without this the model guesses
-// paths and hits sandbox rejections it can't explain.
-func (a *app) envNote() string {
-	return "\n## Environment (facts, not suggestions)\n" +
-		"- workspace: " + a.cfg.WorkspaceDir + " (your files live here; relative tool paths like . or notes/todo.md resolve inside it)\n" +
-		"- skills: " + a.cfg.SkillsDir + "\n" +
-		"- platform: " + runtime.GOOS + "/" + runtime.GOARCH + ", shell: sh, today: " + time.Now().Format("2006-01-02") + "\n" +
-		"- tools available: " + strings.Join(a.tools.Names(), ", ") + "\n" +
-		"- tool discipline: when asked about files, ALWAYS attempt the tool call first (relative paths resolve inside the workspace and always succeed there). Never tell the user something is outside allowed paths without trying — a failed call returns the exact reason, which you then report verbatim.\n"
+// assemblePrompt appends the model-variant addendum and environment facts
+// (internal/prompt) to the identity sections.
+func (a *app) assemblePrompt(base string) string {
+	prof := llm.MatchModelProfile(a.cfg.PrimaryModel)
+	env := prompt.Env{
+		Workdir:   a.cfg.WorkspaceDir,
+		SkillsDir: a.cfg.SkillsDir,
+		ToolNames: a.tools.Names(),
+		IsGitRepo: vcs.Detect(a.cfg.WorkspaceDir).IsRepo,
+	}
+	return prompt.Assemble(base, prompt.Addendum(prompt.VariantFor(prof.PromptVariant)), env.Block())
 }
 
 // refreshMemory injects top recalled facts into the system prompt.
 func (a *app) refreshMemory(query string) {
 	facts := a.memory.Recall(query, 5)
-	a.system = engine.BuildPrompt(mustLoad(a.ws, "SOUL.md"), mustLoad(a.ws, "USER.md"), mustLoad(a.ws, "MEMORY.md"), facts, a.skillz.CapabilitiesPrompt()) + a.envNote()
+	a.system = a.assemblePrompt(engine.BuildPrompt(mustLoad(a.ws, "SOUL.md"), mustLoad(a.ws, "USER.md"), mustLoad(a.ws, "MEMORY.md"), facts, a.skillz.CapabilitiesPrompt()))
 }
 
 func mustLoad(ws *state.Workspace, name string) string {
@@ -742,10 +745,12 @@ func cmdRun(cmd string, args []string) int {
 	}
 	a.eng.SetMode(mode)
 	attachSession(a, cmd)
+	a.eng.ModelID = a.cfg.PrimaryModel
 	if model != "" {
 		a.cfg.PrimaryModel = model
 		a.prov = buildProvider(ctx, a.cfg, a.secrets, true)
 		a.eng.LLM = a.prov
+		a.eng.ModelID = model
 	}
 	a.refreshMemory(prompt)
 	reply, err := a.eng.Run(ctx, a.system, prompt)

@@ -10,7 +10,11 @@ import (
 
 // TranscribeTool converts audio files (Telegram .ogg voice notes as-is)
 // to text for the agent loop.
-type TranscribeTool struct{}
+type TranscribeTool struct {
+	// AllowDirs scopes the audio path; empty means no restriction
+	// (voice notes arrive from channels, not just the workspace).
+	AllowDirs []string
+}
 
 func (t *TranscribeTool) Name() string { return "transcribe" }
 
@@ -28,6 +32,13 @@ func (t *TranscribeTool) Execute(ctx context.Context, args map[string]any) (stri
 	path, _ := args["path"].(string)
 	if strings.TrimSpace(path) == "" {
 		return "", fmt.Errorf("transcribe: missing required argument %q", "path")
+	}
+	if len(t.AllowDirs) > 0 {
+		abs, err := resolveWithinAllow(path, t.AllowDirs)
+		if err != nil {
+			return "", fmt.Errorf("transcribe: %w", err)
+		}
+		path = abs
 	}
 	text, err := media.Transcribe(ctx, path, media.STTConfig{})
 	if err != nil {

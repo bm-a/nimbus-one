@@ -30,6 +30,14 @@ func TestOpencodeEmptyTaskErrors(t *testing.T) {
 	}
 }
 
+func TestOpencodeDirJailed(t *testing.T) {
+	dir := t.TempDir()
+	tool := &OpencodeTool{Bin: "opencode", Dir: dir, AllowDirs: []string{dir}, Timeout: time.Minute}
+	if _, err := tool.Execute(context.Background(), map[string]any{"task": "x", "dir": "../escape"}); err == nil {
+		t.Fatal("dir escape must be rejected")
+	}
+}
+
 func TestOpencodeFakeBinReturnsOutput(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "fake-opencode")

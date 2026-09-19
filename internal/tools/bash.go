@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	nctx "nimbus-one/internal/context"
 )
 
 // BashOutputLimit caps captured bash output.
@@ -100,7 +102,7 @@ func (t *BashTool) Execute(ctx context.Context, args map[string]any) (string, er
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 	err := cmd.Run()
-	out := truncateBytes(buf.String(), BashOutputLimit)
+	out := nctx.Spill("bash", buf.String(), BashOutputLimit)
 	DefaultAudit.Record("exec", truncatePreview(cmdStr, 200), err == nil && ctx.Err() == nil, execReason(err, ctx))
 	if ctx.Err() == context.DeadlineExceeded {
 		return out, fmt.Errorf("bash: timeout after %s", timeout)

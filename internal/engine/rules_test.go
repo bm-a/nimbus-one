@@ -119,6 +119,43 @@ func TestRules_AskApproveRemembers(t *testing.T) {
 	}
 }
 
+func TestRules_ShapePatchHidesEditWrite(t *testing.T) {
+	prov := &reactScriptProvider{resps: []reactScriptResp{{text: "done"}}}
+	reg := tools.NewRegistry()
+	reg.Register(&reactUpperTool{})
+	e := &Engine{LLM: prov, Tools: reg, MaxSteps: 2, ModelID: "gpt-5-mini"}
+	if _, err := e.Run(context.Background(), "sys", "hi"); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// edit/write/apply_patch are not registered here, but the filter must
+	// not hide unrelated tools regardless of shape.
+	found := false
+	for _, d := range prov.requests[0].Tools {
+		if d.Name == "upper" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("unrelated tool hidden by shape filter")
+	}
+}
+
+func TestFilterDefsByShape(t *testing.T) {
+	defs := []llm.ToolDef{{Name: "edit"}, {Name: "write"}, {Name: "apply_patch"}, {Name: "read"}}
+	patch := filterDefsByShape(defs, llm.ShapePatch)
+	for _, d := range patch {
+		if d.Name == "edit" || d.Name == "write" {
+			t.Fatalf("patch shape exposes %q", d.Name)
+		}
+	}
+	edit := filterDefsByShape(defs, llm.ShapeEdit)
+	for _, d := range edit {
+		if d.Name == "apply_patch" {
+			t.Fatal("edit shape exposes apply_patch")
+		}
+	}
+}
+
 func TestRules_SessionPersist(t *testing.T) {
 	prov := &reactScriptProvider{resps: []reactScriptResp{
 		{text: "", calls: []llm.ToolCall{{ID: "1", Name: "upper", Arguments: `{"text":"hi"}`}}},

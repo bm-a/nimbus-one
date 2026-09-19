@@ -33,6 +33,10 @@ type Engine struct {
 	Approvals  *perms.Approvals
 	Session    *session.Store
 	SessionID  string
+	// ModelID drives per-model tool shaping via the profile table
+	// (e.g. GPT-family models get apply_patch instead of edit/write).
+	// Empty means the default profile.
+	ModelID string
 }
 
 func (e *Engine) maxSteps() int {
@@ -106,6 +110,7 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 	mode := e.CurrentMode()
 	defs := registryToDefs(e.Tools)
 	defs = filterDefsByRuleset(defs, e.effectiveRuleset())
+	defs = filterDefsByShape(defs, shapeFor(e.ModelID))
 	if e.Ruleset == nil && mode == ModePlan {
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: "PLAN MODE: read-only. Inspect files, search, and fetch URLs. Do NOT attempt writes, shell commands, or any mutating actions — propose changes as text instead."})
 	}

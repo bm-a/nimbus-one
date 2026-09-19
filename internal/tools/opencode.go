@@ -18,9 +18,11 @@ type OpencodeTool struct {
 	// Bin is the opencode binary. Empty = auto-resolve via OPENCODE_BIN or PATH.
 	Bin string
 	// Dir is the working directory for the delegated task.
-	Dir     string
-	Model   string
-	Timeout time.Duration
+	Dir string
+	// AllowDirs scopes the dir argument; empty means no restriction.
+	AllowDirs []string
+	Model     string
+	Timeout   time.Duration
 }
 
 func (t *OpencodeTool) Name() string { return "opencode" }
@@ -67,6 +69,13 @@ func (t *OpencodeTool) Execute(ctx context.Context, args map[string]any) (string
 	dir := t.Dir
 	if d, _ := args["dir"].(string); strings.TrimSpace(d) != "" {
 		dir = d
+	}
+	if dir != "" && len(t.AllowDirs) > 0 {
+		abs, err := resolveWithinAllow(dir, t.AllowDirs)
+		if err != nil {
+			return "", fmt.Errorf("opencode: bad dir: %w", err)
+		}
+		dir = abs
 	}
 	bin := t.bin()
 	if bin == "" {

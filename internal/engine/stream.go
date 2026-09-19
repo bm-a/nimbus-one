@@ -36,6 +36,7 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 	e.persist(session.RoleUser, user, "", "")
 	defs := registryToDefs(e.Tools)
 	defs = filterDefsByRuleset(defs, e.effectiveRuleset())
+	defs = filterDefsByShape(defs, shapeFor(e.ModelID))
 	if e.Ruleset == nil && e.CurrentMode() == ModePlan {
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: "PLAN MODE: read-only. Inspect files, search, and fetch URLs. Do NOT attempt writes, shell commands, or any mutating actions — propose changes as text instead."})
 	}

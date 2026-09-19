@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"nimbus-one/internal/verify"
 )
 
 // ReadLimit caps bytes returned by ReadTool.
@@ -194,7 +196,7 @@ func (t *WriteTool) Execute(ctx context.Context, args map[string]any) (string, e
 	if err := os.WriteFile(abs, []byte(data), 0o644); err != nil {
 		return "", fmt.Errorf("write: %w", err)
 	}
-	return fmt.Sprintf("wrote %d bytes to %s", len(data), abs), nil
+	return fmt.Sprintf("wrote %d bytes to %s%s", len(data), abs, verify.Report(verify.Check(abs))), nil
 }
 
 // ListTool lists directory entries.

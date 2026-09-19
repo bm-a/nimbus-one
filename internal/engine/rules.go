@@ -57,6 +57,32 @@ func filterDefsByRuleset(defs []llm.ToolDef, rs perms.Ruleset) []llm.ToolDef {
 	return out
 }
 
+// filterDefsByShape applies the model profile's tool shape: the patch
+// shape hides edit+write (the model gets apply_patch instead); the edit
+// shape hides apply_patch. Unknown shapes change nothing.
+func filterDefsByShape(defs []llm.ToolDef, shape string) []llm.ToolDef {
+	if !llm.ShapeHidesEdit(shape) && shape != llm.ShapeEdit {
+		return defs
+	}
+	out := defs[:0:0]
+	for _, d := range defs {
+		if llm.ShapeHidesEdit(shape) {
+			if d.Name == "edit" || d.Name == "write" {
+				continue
+			}
+		} else if d.Name == "apply_patch" {
+			continue
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
+// shapeFor resolves the tool shape for a model ID via the profile table.
+func shapeFor(modelID string) string {
+	return llm.MatchModelProfile(modelID).ToolShape
+}
+
 // approvals returns the session approval store, creating it on first use.
 func (e *Engine) approvals() *perms.Approvals {
 	approvalsMu.Lock()

@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"nimbus-one/internal/verify"
 )
 
 // bomPrefix is preserved verbatim when present.
@@ -158,7 +160,9 @@ func applyEdits(ctx context.Context, abs string, ops []EditOp) (string, error) {
 	if err := os.WriteFile(abs, []byte(out), st.Mode().Perm()); err != nil {
 		return "", fmt.Errorf("write %s: %w", abs, err)
 	}
-	return fmt.Sprintf("edit %s: applied %d change(s)\n%s", abs, len(ops), strings.Join(previews, "\n")), nil
+	// Post-edit verification: diagnostics ride with the result so the model
+	// sees what it broke immediately (OpenCode edit→LSP shape).
+	return fmt.Sprintf("edit %s: applied %d change(s)\n%s%s", abs, len(ops), strings.Join(previews, "\n"), verify.Report(verify.Check(abs))), nil
 }
 
 func countLines(s string) int {
