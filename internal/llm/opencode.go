@@ -208,9 +208,10 @@ func (s *Sidecar) Run(ctx context.Context, prompt string, onEvent func(OpEvent))
 		scanErr <- sc.Err()
 	}()
 
+	serr := <-scanErr
 	waitErr := cmd.Wait()
 	<-stderrDone
-	if serr := <-scanErr; serr != nil && runCtx.Err() == nil && !isPipeClosed(serr) {
+	if serr != nil && runCtx.Err() == nil && !isPipeClosed(serr) {
 		// Scanner failure (not caused by cancellation) is reported unless
 		// the process itself already failed with a clearer error.
 		if waitErr == nil {
