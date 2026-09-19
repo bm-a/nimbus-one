@@ -17,8 +17,8 @@ diagnostics. Local-first (Markdown state, JSONL history, encrypted secrets);
 no telemetry, no accounts, no callbacks.
 
 **Version state: `0.1.0-beta`** (legacy tree) + **`nimbus-min 0.1.0`**
-(the product — see §10). Root README fronts `nimbus-min/`; the legacy
-`cmd/nimbus-one` tree is prototype reference. Eleven commits on `main`.
+(the product — see §10–§11). Root README fronts `nimbus-min/`; the legacy
+`cmd/nimbus-one` tree is prototype reference. Eighteen commits on `main`.
 Working tree clean at handoff time.
 
 ---
@@ -366,3 +366,61 @@ zero deps) — legacy tree untouched. All green: gofmt/vet/test,
   live emulation still pending credits (see §8d).
 - Repo: root README fronts `nimbus-min/` as the product; CI has a
   `min` job; no secrets/artifacts committed.
+
+## 11. Multi-provider support, OpenClaw parity (2026-09-20, `902925a`)
+
+User order: "support for all possible providers just like openclaw".
+Done and pushed. All green: gofmt/vet/full suite/`CGO_ENABLED=0`
+build. No new deps (still stdlib-only).
+
+- Source of truth: `~/tmp/openclaw-src` (KEEP IT) —
+  `extensions/*/openclaw.plugin.json` `modelCatalog.providers`
+  (+ provider-catalog TS for runtime-discovery ones). 44 manifest
+  entries + openrouter/ollama-local/lmstudio/llamacpp/sglang-bases
+  from extension TS.
+- `nimbus-min/providers.go`: 46 rows (id, base, family, key envs,
+  first-listed catalog model as default, local flag). Excluded +
+  reasons in table footer/`models` output/DECISIONS #10: bedrock/
+  vertex/azure (SDK auth), claude-cli/codex/copilot/minimax (OAuth),
+  qwen-main/alibaba (ambiguous bases), ollama-cloud (compat path
+  unverifiable). Synthetic base verified in extension TS
+  (`api.synthetic.new/openai/v1`); vercel `/v1` path flagged
+  unverified in its Note.
+- `nimbus-min/openai.go`: ONE generic `/chat/completions` client for
+  all openai-family rows (request mapping incl. assistant tool_calls
+  echo + tool role messages; response mapping incl. array-content
+  parts, bad-args errors, friendly 401/429/5xx + generic).
+- `loop.go`: `modelClient` interface; loop is provider-blind.
+  Existing anthropic fake-server tests pass unchanged.
+- `resolve.go` + config: provider/model/base_url fields;
+  precedence flags > NIMBUS_PROVIDER/_MODEL/_BASE_URL > config >
+  provider default; keys config > provider envs > NIMBUS_API_KEY;
+  model-required error when provider has no default; key error
+  names the env var.
+- Onboard now: consent → provider (10-numbered shortlist + any id)
+  → model (default shown / required) → key (names envs, skipped
+  for local) → workspace. `models` command (cloud/local/custom
+  groups, `*` = configured, exclusions footer). `run
+  --provider/--model/--base-url`. `help <topic>`.
+- Netguard: pin follows active provider host (exact host:port, no
+  blanket loopback). SECURITY §3/§5 rewritten. Old tests updated.
+- Live proofs (real network, fake keys): deepseek 401 over real TLS
+  (compat client + pin work); ollama → loopback refused, no key
+  needed (local path works); `models` marker; unknown-provider +
+  model-required + key guidance all print correctly.
+- Docs: min README (providers, overrides, env, troubleshoot),
+  DECISIONS #10, CHANGELOG, wiki sweep (Home/FAQ/User-Guide/
+  Advanced-Features/Agent-Guide). install.sh/ps1 already pushed
+  in `e0a9b06` (+2 arg-parsing fixes found by real-clone testing).
+- Bugs found: install.sh `--dir DIR` rejected + `-d` on go.mod
+  broke re-runs (both fixed, retested real-clone + idempotent).
+- install.ps1 NEVER EXECUTED (no Windows here, Linux CI can't run
+  it) — say so whenever touched.
+- NEXT (all pending live keys — do NOT spend user keys/credits
+  without asking): (a) one 200-with-tool-calls turn per client
+  shape (native + compat) using a user-approved key; (b) meta /
+  opencode rows are live-test pending (user holds MODEL_API_KEY,
+  OPENCODE_API_KEY); (c) EXPERIENTIAL_API_KEY matches NO manifest —
+  covered by --base-url + NIMBUS_API_KEY, ask user for its host if
+  they want a table row. After that: NOTHING scheduled — await
+  user orders.
