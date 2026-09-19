@@ -103,6 +103,15 @@ func (c *anthropicClient) complete(system string, msgs []message, tools []toolDe
 		return nil, fmt.Errorf("read Anthropic response: %v", err)
 	}
 	if resp.StatusCode != 200 {
+		if resp.StatusCode == 401 {
+			return nil, fmt.Errorf("Anthropic rejected the API key (401) — it is wrong or revoked. Check https://console.anthropic.com/ or re-run `nimbus-min onboard`")
+		}
+		if resp.StatusCode == 429 {
+			return nil, fmt.Errorf("Anthropic rate limit (429) — wait a minute and retry")
+		}
+		if resp.StatusCode >= 500 {
+			return nil, fmt.Errorf("Anthropic is having trouble (%d) — wait and retry", resp.StatusCode)
+		}
 		return nil, fmt.Errorf("Anthropic error %d: %s", resp.StatusCode, oneLine(raw))
 	}
 	var out messagesResponse

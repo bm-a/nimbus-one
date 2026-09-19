@@ -170,8 +170,26 @@ func TestLoopHTTPError(t *testing.T) {
 	}))
 	defer srv.Close()
 	testJail(t)
-	if _, err := runAgent(testClient(t, srv), strings.NewReader(""), &strings.Builder{}, false, "hi", 5); err == nil {
+	_, err := runAgent(testClient(t, srv), strings.NewReader(""), &strings.Builder{}, false, "hi", 5)
+	if err == nil {
 		t.Fatal("401 must surface as error")
+	}
+	if !strings.Contains(err.Error(), "API key") {
+		t.Fatalf("401 must guide to the key, got: %v", err)
+	}
+}
+
+func TestLoopRateLimitAndServerErrors(t *testing.T) {
+	for status, want := range map[int]string{429: "rate limit", 529: "having trouble"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{}`, status)
+		}))
+		testJail(t)
+		_, err := runAgent(testClient(t, srv), strings.NewReader(""), &strings.Builder{}, false, "hi", 5)
+		srv.Close()
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("status %d must mention %q, got: %v", status, want, err)
+		}
 	}
 }
 
