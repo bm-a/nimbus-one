@@ -7,12 +7,16 @@ Human docs: [User Guide](User-Guide.md) · [FAQ](FAQ.md).
 
 ```
 nimbus-min/
-  main.go          CLI: onboard | run | serve | version | help
-  onboard.go       first-run wizard (consent → key → workspace → config)
+  main.go          CLI: onboard | run | models | serve | version | help
+  onboard.go       wizard (consent → provider → model → key → workspace)
   config.go        nimbus.json load/save/validate (0600, unknown fields rejected)
+  providers.go     46-row provider table (OpenClaw modelCatalog data)
+  resolve.go       flags → env → config → defaults; key resolution
+  models.go        `models` command + per-command help
   loop.go          agent loop + 5 tool definitions + system prompt
   anthropic.go     /v1/messages client (pinned version header)
-  netguard.go      ONLY dial path: api.anthropic.com:443
+  openai.go        /chat/completions client (all openai-family rows)
+  netguard.go      ONLY dial path, pinned to the active provider host
   tools.go         read/write/edit/list/shell (all through the jail)
   jail.go          workspace lock, resolve(), shell-text scanner
   confirm.go       mandatory typed-yes gate, headless refusal
@@ -22,7 +26,9 @@ nimbus-min/
 ```
 
 Rules: no new dependencies (stdlib only), no new tools without
-explicit approval, no `TODO`/stubs, `gofmt` clean, `go vet` clean.
+explicit approval, new providers are TABLE ROWS (never new clients
+unless the wire shape is new), no `TODO`/stubs, `gofmt` clean,
+`go vet` clean.
 
 ## Jail rules (do not weaken)
 

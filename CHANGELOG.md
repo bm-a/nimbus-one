@@ -1,11 +1,21 @@
 # Changelog
 
+## Unreleased — nimbus-min providers (OpenClaw parity)
+
+46 providers from OpenClaw's `modelCatalog` manifests as a data table
+(two clients: native Anthropic + generic OpenAI chat-completions; the
+loop is provider-blind). `models` command, onboard provider/model
+choice, `--provider/--model/--base-url` overrides, `NIMBUS_PROVIDER/
+_MODEL/_BASE_URL/_API_KEY` env, local Ollama/LM Studio/llama-server,
+custom-server escape hatch. Network pin is per-provider (keys can't
+cross hosts). Excluded with reasons: SDK-auth clouds, OAuth CLIs,
+ambiguous endpoints.
+
 ## Unreleased — nimbus-min 0.1.0 (the product)
 
-Minimal Anthropic-only coding assistant: one workspace, five tools
+Minimal coding assistant: one workspace, five tools
 (read/write/edit/list/shell), mandatory typed-`yes` shell gate, jail
-with symlink-escape defense, network locked to `api.anthropic.com:443`
-in code, OpenClaw app protocol subset (`connect`/`chat.send`/
+with symlink-escape defense, per-provider network pin in code, OpenClaw app protocol subset (`connect`/`chat.send`/
 `sessions.list`) + green control page, `onboard` wizard, tested
 installers (`nimbus-min/install.sh`, `install.ps1`), full wiki.
 Pure Go, zero dependencies, ~10MB static binary. See

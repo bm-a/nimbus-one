@@ -19,13 +19,22 @@ Wire details: `nimbus-min/compat.go` (hand-rolled RFC6455, stdlib
 only). Tests: `compat_test.go` (frames, auth, flow) plus a live
 socket handshake verified against the running server.
 
+## Custom servers
+
+Any OpenAI-compatible server works without a table row: pass
+`--base-url URL` (or `NIMBUS_BASE_URL`) paired with the matching
+provider shape, key via `NIMBUS_API_KEY`. This covers vLLM, SGLang,
+LiteLLM, proxies, and keys living in unconventional env vars. The
+network pin follows the override host automatically.
+
 ## Explicitly out of scope
 
 Each is a maintenance + security surface the product promise
 ("small enough to audit") excludes. They return only if explicitly
 approved, with tests and docs — never smuggled in via "compatibility":
 
-- More models / fallback chains / routing
+- Fallback chains / multi-key routing (one provider per run; `--provider` switches explicitly)
+- SDK-auth clouds, OAuth CLIs, ambiguous endpoints (see `models` footer for the list + reasons)
 - Chat channels (Telegram, Discord, …)
 - Memory across runs, databases, history search
 - Scheduling, cron, heartbeat automation

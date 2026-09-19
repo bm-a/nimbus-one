@@ -29,6 +29,9 @@ func newAnthropicClient(key string) *anthropicClient {
 	return &anthropicClient{http: guardedHTTPClient(), key: key, base: AnthropicBaseURL, model: anthropicModel}
 }
 
+// NOTE: preferred construction is resolveClient (config + provider
+// table); this helper exists for tests and the default path.
+
 // message is one conversation turn.
 type message struct {
 	Role    string         `json:"role"`

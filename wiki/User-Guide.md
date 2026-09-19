@@ -17,17 +17,31 @@ sh nimbus-min/install.sh
 ```
 
 `onboard` asks, in order: safety summary (`yes` to continue) →
-Anthropic API key (from https://console.anthropic.com/, empty = use
-`ANTHROPIC_API_KEY` env) → workspace folder (default
-`~/nimbus-workspace`, created if needed). Then it writes the config
-and mints an HTTP token for the app bridge.
+provider (numbered shortlist, or any id from `nimbus-min models`) →
+model (default shown; required when the provider has none) → API key
+(stored in config, or empty = use the provider's env var; local
+providers skip this) → workspace folder (default `~/nimbus-workspace`,
+created if needed). Then it writes the config and mints an HTTP token
+for the app bridge.
 
 Where things live:
 
 - Termux: `~/.nimbus-one`
 - Linux/macOS: `~/.config/nimbus-one` (or `$XDG_CONFIG_HOME/nimbus-one`)
 - Windows: `%APPDATA%/nimbus-one`
-- Inside: `nimbus.json` (`0600` — workspace, optional key, HTTP token)
+- Inside: `nimbus.json` (`0600` — provider, model, optional key, workspace, HTTP token)
+
+## Providers
+
+```sh
+nimbus-min models                                    # all 46: key envs, defaults (* = yours)
+nimbus-min run --provider deepseek "fix it"          # one-off (also --model, --base-url)
+```
+
+Resolution: flags → `NIMBUS_PROVIDER` / `NIMBUS_MODEL` /
+`NIMBUS_BASE_URL` env → config → provider default. Keys: config →
+provider env vars → `NIMBUS_API_KEY`. Custom servers (vLLM, SGLang,
+LiteLLM): `--base-url URL` with the matching provider shape.
 
 ## Daily use
 
@@ -65,23 +79,25 @@ workspace gives full undo (`git diff`, `git checkout -- <file>`).
 
 ## Config
 
-`nimbus.json` has three keys: `api_key` (optional if
-`ANTHROPIC_API_KEY` is set), `workspace`, `http_token`.
+`nimbus.json` keys: `provider`, `model`, `base_url` (override),
+`api_key` (optional if a key env var is set), `workspace`,
+`http_token`.
 Unknown keys are rejected (typo protection); a broken file tells you
-to re-run `onboard`. There is nothing else to configure — that is
-the point.
+to re-run `onboard`.
 
 ## Troubleshoot
 
 | Problem | Fix |
 |---|---|
 | `no workspace set` | Run `nimbus-min onboard`. |
-| `no Anthropic API key` | Re-run `onboard` with a key, or set `ANTHROPIC_API_KEY`. |
+| `no API key for X` | Re-run `onboard` with a key, or set the named env var. |
+| `unknown provider` | Run `nimbus-min models` for exact ids. |
+| `has no default model` | Set one via `onboard`, config `model`, or `--model`. |
 | `config file is broken` | Re-run `onboard` to rebuild it. |
 | `path ... escapes the workspace` | Use a path inside the workspace, e.g. `notes/todo.md` (never absolute). |
-| `Anthropic error 401` | Key wrong or revoked — check console.anthropic.com. |
-| `Anthropic error 429` | Rate limit — wait a minute, retry. |
-| `Anthropic error 5xx` | Anthropic is struggling — wait, retry. |
+| `rejected the API key (401)` | Key wrong or revoked — check your provider dashboard. |
+| `rate limit (429)` | Wait a minute, retry. |
+| `having trouble (5xx)` | Provider-side — wait, retry. |
 | `stopped after 25 turns` | Split the task into smaller steps. |
 | Empty answer | Rephrase; the model returned nothing usable. |
 

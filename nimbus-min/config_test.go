@@ -71,30 +71,42 @@ func TestConfigUnknownFieldRejected(t *testing.T) {
 	}
 }
 
-func TestAPIKeyEnvFallback(t *testing.T) {
+func TestAPIKeyResolution(t *testing.T) {
 	testConfigPath(t)
 	t.Setenv("ANTHROPIC_API_KEY", "env-key")
+	p, _ := lookupProvider("anthropic")
 	c := &Config{Workspace: t.TempDir()}
-	if c.apiKey() != "env-key" {
-		t.Fatal("env fallback broken")
+	if got := resolveKey(c, p); got != "env-key" {
+		t.Fatalf("env fallback = %q", got)
 	}
 	c.APIKey = "file-key"
-	if c.apiKey() != "file-key" {
-		t.Fatal("config key must win over env")
+	if got := resolveKey(c, p); got != "file-key" {
+		t.Fatalf("config key must win, got %q", got)
+	}
+	t.Setenv("NIMBUS_API_KEY", "generic-key")
+	c2 := &Config{}
+	if got := resolveKey(c2, p); got != "env-key" {
+		t.Fatalf("provider env must beat generic, got %q", got)
+	}
+	p2, _ := lookupProvider("deepseek")
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	if got := resolveKey(c2, p2); got != "generic-key" {
+		t.Fatalf("generic fallback = %q", got)
 	}
 }
 
 func TestOnboardFlow(t *testing.T) {
 	p := testConfigPath(t)
 	ws := filepath.Join(t.TempDir(), "mywork")
-	stdin := strings.NewReader("yes\n\n" + ws + "\n")
+	// consent, provider default, model default, empty key, workspace.
+	stdin := strings.NewReader("yes\n\n\n\n" + ws + "\n")
 	var stdout strings.Builder
 	workspaceRoot = ""
 	if err := onboard(stdin, &stdout); err != nil {
 		t.Fatalf("onboard: %v", err)
 	}
 	out := stdout.String()
-	for _, want := range []string{"Nimbus-One", "workspace", "yes", "Anthropic"} {
+	for _, want := range []string{"Nimbus-One", "workspace", "yes", "Provider", "Model"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("onboard output missing %q:\n%s", want, out)
 		}
@@ -127,5 +139,69 @@ func TestOnboardDecline(t *testing.T) {
 	}
 	if _, err := os.Stat(configPath()); !os.IsNotExist(err) {
 		t.Fatal("cancelled onboard must not write config")
+	}
+}
+
+func TestOnboardProviderChoice(t *testing.T) {
+	p := testConfigPath(t)
+	ws := filepath.Join(t.TempDir(), "w")
+	// Pick #4 (deepseek) by number, accept its default model, fake key.
+	stdin := strings.NewReader("yes\n4\n\nk-deep\n" + ws + "\n")
+	workspaceRoot = ""
+	if err := onboard(stdin, &strings.Builder{}); err != nil {
+		t.Fatalf("onboard: %v", err)
+	}
+	back, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Provider != "deepseek" || back.Model != "deepseek-v4-flash" || back.APIKey != "k-deep" {
+		t.Fatalf("config = %+v", back)
+	}
+	_ = p
+}
+
+func TestOnboardLocalSkipsKey(t *testing.T) {
+	testConfigPath(t)
+	ws := filepath.Join(t.TempDir(), "w")
+	// lmstudio has no default model: proves the required-model path too.
+	stdin := strings.NewReader("yes\nlmstudio\nmymodel\n" + ws + "\n")
+	workspaceRoot = ""
+	var out strings.Builder
+	if err := onboard(stdin, &out); err != nil {
+		t.Fatalf("onboard: %v", err)
+	}
+	if !strings.Contains(out.String(), "no key") {
+		t.Fatalf("local provider must skip key step:\n%s", out.String())
+	}
+	back, _ := loadConfig()
+	if back.Provider != "lmstudio" || back.Model != "mymodel" || back.APIKey != "" {
+		t.Fatalf("config = %+v", back)
+	}
+}
+
+func TestOnboardRequiresModel(t *testing.T) {
+	testConfigPath(t)
+	ws := filepath.Join(t.TempDir(), "w")
+	// openrouter has no default; empty model must fail.
+	stdin := strings.NewReader("yes\nopenrouter\n\nk\n" + ws + "\n")
+	workspaceRoot = ""
+	if err := onboard(stdin, &strings.Builder{}); err == nil {
+		t.Fatal("empty model for default-less provider must fail")
+	}
+}
+
+func TestParseProviderAnswer(t *testing.T) {
+	if p, err := parseProviderAnswer(""); err != nil || p.ID != "anthropic" {
+		t.Fatalf("default = %+v, %v", p, err)
+	}
+	if p, err := parseProviderAnswer("4"); err != nil || p.ID != "deepseek" {
+		t.Fatalf("number = %+v, %v", p, err)
+	}
+	if p, err := parseProviderAnswer("xAI"); err != nil || p.ID != "xai" {
+		t.Fatalf("id = %+v, %v", p, err)
+	}
+	if _, err := parseProviderAnswer("nope"); err == nil {
+		t.Fatal("unknown must error")
 	}
 }

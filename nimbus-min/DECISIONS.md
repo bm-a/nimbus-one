@@ -56,3 +56,17 @@ last. Nothing here is hidden in code comments alone.
    No context budgeting in v1: the 25-turn cap plus the model's own
    discipline bounds cost. If long sessions degrade, that is a
    measured Phase-2 feature, not a v1 guess.
+
+10. All OpenClaw providers, as table rows — approved scope expansion.
+    The 46-row providers table (ids, bases, key envs, defaults) is
+    transcribed from OpenClaw's `modelCatalog` manifests, not
+    invented; two clients (native Anthropic + generic OpenAI
+    chat-completions) cover every row, and the loop never branches
+    on provider. Excluded with reasons: cloud SDK-auth (bedrock,
+    vertex, azure — no plain keys), OAuth CLIs (claude-cli, codex,
+    copilot, minimax), ambiguous endpoints (qwen main, alibaba),
+    unverifiable compat paths (ollama-cloud). Custom servers
+    (vLLM/SGLang/LiteLLM, odd env keys) go through `--base-url` +
+    matching shape instead of new rows. Cost: the network pin is now
+    per-provider instead of single-host — enforced the same way
+    (see SECURITY.md §3).

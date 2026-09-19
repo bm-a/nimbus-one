@@ -9,11 +9,23 @@ import (
 	"strings"
 )
 
-// Config is the entire Nimbus-One configuration: an API key reference,
-// one workspace, one HTTP token. Anything else is out of scope.
+// Config is the entire Nimbus-One configuration: provider, model, key
+// reference, workspace, HTTP token. Anything else is out of scope.
 type Config struct {
-	// APIKey holds the Anthropic key directly, or "" when the key
-	// comes from the ANTHROPIC_API_KEY environment variable instead.
+	// Provider selects a row from the providers table ("anthropic"
+	// default). Empty = default. See `nimbus-min models`.
+	Provider string `json:"provider,omitempty"`
+	// Model overrides the provider's default. Empty = provider default;
+	// providers with no default refuse until one is set.
+	Model string `json:"model,omitempty"`
+	// BaseURL overrides the provider's endpoint (self-hosted gateways
+	// like vLLM/SGLite/LiteLLM, proxies, custom servers such as a key
+	// in an unconventional env var). The wire shape stays the
+	// provider's — pair the override with the matching provider id
+	// (e.g. provider "ollama" shape for any OpenAI-compatible server).
+	BaseURL string `json:"base_url,omitempty"`
+	// APIKey holds the key directly, or "" when the key comes from the
+	// provider's env vars (or NIMBUS_API_KEY) instead.
 	APIKey    string `json:"api_key,omitempty"`
 	Workspace string `json:"workspace"`
 	HTTPToken string `json:"http_token,omitempty"`
@@ -83,15 +95,6 @@ func saveConfig(c *Config) error {
 		return fmt.Errorf("write config: %v", err)
 	}
 	return os.Rename(tmp, configPath())
-}
-
-// apiKey resolves the key: config file wins, then environment.
-// Empty means unconfigured (callers print the onboard guidance).
-func (c *Config) apiKey() string {
-	if strings.TrimSpace(c.APIKey) != "" {
-		return strings.TrimSpace(c.APIKey)
-	}
-	return strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
 }
 
 // validate checks the config the way the agent needs it: workspace must

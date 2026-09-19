@@ -38,6 +38,13 @@ func agentTools() []toolDef {
 	}
 }
 
+// modelClient is any LLM backend: native Anthropic or OpenAI-compatible.
+// Both map to the same content blocks, so the loop never branches on
+// provider. New providers are table rows, not loop changes.
+type modelClient interface {
+	complete(system string, msgs []message, tools []toolDef) ([]contentBlock, error)
+}
+
 // agentSystem is the system prompt: identity, workspace facts, tool
 // discipline. Short on purpose — every token competes with the task.
 func agentSystem() string {
@@ -57,7 +64,7 @@ func agentSystem() string {
 // touches disk or shell except through the five validated tools.
 // confirmShellFn and stdin/stdout are injected so tests drive the loop
 // without a terminal.
-func runAgent(client *anthropicClient, stdin io.Reader, stdout io.Writer, interactive bool, userText string, maxTurns int) (string, error) {
+func runAgent(client modelClient, stdin io.Reader, stdout io.Writer, interactive bool, userText string, maxTurns int) (string, error) {
 	if maxTurns <= 0 {
 		maxTurns = 25
 	}

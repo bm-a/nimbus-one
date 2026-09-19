@@ -6,35 +6,73 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
-// AnthropicBaseURL is the only host Nimbus-One may contact.
+// AnthropicBaseURL is the default backend (and the historical only-host).
 const AnthropicBaseURL = "https://api.anthropic.com"
 
-// allowedDial is the network boundary, enforced in code: only
-// api.anthropic.com:443. Everything else (telemetry, updates, logging,
-// analytics) is impossible by construction — there is no other dial path.
-func allowedDial(ctx context.Context, network, addr string) (net.Conn, error) {
+// Network boundary, enforced in code: the ONLY dial path allows the
+// active provider's host plus loopback (for local providers). There is
+// no second client, no telemetry path, no update check — one transport
+// constructor, everything else impossible by construction.
+type guard struct {
+	allowed map[string]bool // "host:port" entries
+}
+
+func guardForBase(base string) (*guard, error) {
+	u, err := url.Parse(base)
+	if err != nil || u.Host == "" {
+		return nil, fmt.Errorf("network blocked: malformed base URL %q", base)
+	}
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		if strings.EqualFold(u.Scheme, "http") {
+			port = "80"
+		} else {
+			port = "443"
+		}
+	}
+	g := &guard{allowed: map[string]bool{strings.ToLower(host) + ":" + port: true}}
+	return g, nil
+}
+
+func (g *guard) dial(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("network blocked: malformed address %q", addr)
 	}
-	if host != "api.anthropic.com" || port != "443" {
-		return nil, fmt.Errorf("network blocked: Nimbus-One only contacts api.anthropic.com:443 (got %s)", addr)
+	if !g.allowed[strings.ToLower(host)+":"+port] {
+		return nil, fmt.Errorf("network blocked: Nimbus-One only contacts its configured provider (got %s)", addr)
 	}
 	return (&net.Dialer{Timeout: 20 * time.Second}).DialContext(ctx, network, addr)
 }
 
-// guardedHTTPClient returns the only HTTP client in the program.
-func guardedHTTPClient() *http.Client {
+// guardedHTTPClientFor returns the only HTTP client construction in the
+// program, pinned to base's host.
+func guardedHTTPClientFor(base string) *http.Client {
+	g, err := guardForBase(base)
+	if err != nil {
+		// Should not happen (bases come from the validated table or an
+		// explicit override); fail closed to anthropic-only.
+		g, _ = guardForBase(AnthropicBaseURL)
+	}
 	return &http.Client{
 		Timeout: 120 * time.Second,
 		Transport: &http.Transport{
-			DialContext:           allowedDial,
+			DialContext:           g.dial,
 			TLSHandshakeTimeout:   20 * time.Second,
 			ResponseHeaderTimeout: 60 * time.Second,
 			TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
 		},
 	}
+}
+
+// guardedHTTPClient is the default-backend client (kept for the
+// Anthropic path and its tests).
+func guardedHTTPClient() *http.Client {
+	return guardedHTTPClientFor(AnthropicBaseURL)
 }

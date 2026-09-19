@@ -1,7 +1,8 @@
 # Nimbus-One Wiki — Home
 
-Nimbus-One is a minimal coding assistant: **one workspace, one model
-(Anthropic Claude), five tools** (read, write, edit, list, shell).
+Nimbus-One is a minimal coding assistant: **one workspace, five tools**
+(read, write, edit, list, shell), **your choice of 46 providers**
+(Anthropic, OpenAI, DeepSeek, local Ollama, … — see `models`).
 One static binary, pure Go, zero dependencies. Before every shell
 command it shows you the exact command and waits for your typed `yes`.
 

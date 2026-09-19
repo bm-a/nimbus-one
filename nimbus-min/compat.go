@@ -52,16 +52,15 @@ type bridgeServer struct {
 func newBridge(cfg *Config) *bridgeServer {
 	b := &bridgeServer{token: cfg.HTTPToken}
 	b.run = func(text string) (string, error) {
-		key := cfg.apiKey()
-		if key == "" {
-			return "", fmt.Errorf("no Anthropic API key — run `nimbus-min onboard` first")
-		}
 		if err := cfg.validate(); err != nil {
 			return "", err
 		}
-		client := newAnthropicClient(key)
+		r, err := resolveClient(cfg, "", "", "")
+		if err != nil {
+			return "", err
+		}
 		// Headless: shell is refused by the confirm gate, never executed.
-		return runAgent(client, strings.NewReader(""), io.Discard, false, text, 25)
+		return runAgent(r.client, strings.NewReader(""), io.Discard, false, text, 25)
 	}
 	return b
 }

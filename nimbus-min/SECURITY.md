@@ -44,14 +44,21 @@ tool, shell cwd lock via `pwd`, failure/timeout behavior).
 Tests: `confirm_test.go` (yes/YES approve; `y`, empty, `no`,
 `yes yes` refuse; headless refuses even with `yes` piped in).
 
-## 3. Network boundary (`netguard.go`)
+## 3. Network boundary (`netguard.go`, `providers.go`)
 
-- The program's only HTTP client uses a custom `DialContext` that
-  allows **only `api.anthropic.com:443`**. Any other host, port, or
-  scheme fails with `network blocked`.
+- The program's only HTTP client construction (`guardedHTTPClientFor`)
+  pins the dialer to **exactly one `host:port`: the active provider's**.
+  Local providers pin loopback (`127.0.0.1:11434`, …). No aliases, no
+  wildcards, no second client.
 - This covers telemetry, update checks, logging, analytics: they are
-  impossible by construction — there is no second dial path.
-  (`grep -rn "http\." --include=*.go` shows one client, one transport.)
+  impossible by construction — there is no other dial path.
+  (`grep -rn "http.Client{" --include=*.go` shows one site.)
+- Switching providers switches the pin: the Anthropic key cannot be
+  sent to DeepSeek's host because that host is undialable while
+  Anthropic is active, and vice versa. Keys are per-provider by
+  construction, not by discipline.
+- Custom `--base-url` values pin to their own host the same way; a
+  malformed base fails closed to anthropic-only.
 
 Tests: `netguard_test.go` (example.com, wrong scheme, lookalike
 subdomain all blocked).
@@ -72,9 +79,10 @@ answer, max-turn cutoff, shell yes/headless paths).
 
 ## 5. Secrets
 
-- The API key lives in the config file (`0600`, owner-only) or the
-  `ANTHROPIC_API_KEY` environment variable. It is sent only as the
-  `x-api-key` header to `api.anthropic.com`.
+- The API key lives in the config file (`0600`, owner-only), the
+  provider's env vars, or `NIMBUS_API_KEY`. It is sent only as the
+  auth header to the pinned provider host — and the pin means a key
+  can never leak to a different provider's host (see §3).
 - Keys never appear in logs, errors, or transcripts. Error paths
   redact bodies to one line (`oneLine`, 300 chars).
 

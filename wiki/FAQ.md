@@ -5,8 +5,8 @@ Short honest answers. Details: [User Guide](User-Guide.md) ·
 
 ## 1. What is Nimbus-One?
 
-A minimal coding assistant: one workspace, one model (Anthropic
-Claude), five tools (read, write, edit, list, shell). One static
+A minimal coding assistant: one workspace, five tools (read, write,
+edit, list, shell), your choice of 46 providers. One static
 binary, pure Go, zero dependencies.
 
 ## 2. How is it different from OpenClaw?
@@ -43,9 +43,17 @@ Yes — pure Go, no CGO. Config dir: `%APPDATA%/nimbus-one`
 
 ## 7. Does it work with no API key?
 
-No — and it says so plainly (`no Anthropic API key — run onboard…`).
-One model, one key, no offline mode. This is an explicit scope
-decision, not a missing feature.
+No — and it says so plainly (`no API key for X — run onboard…`).
+One provider, one key per run (local Ollama/LM Studio need no key).
+This is an explicit scope decision, not a missing feature.
+
+## 8. Which providers are supported?
+
+46, listed by `nimbus-min models` — Anthropic, OpenAI, Google,
+DeepSeek, Groq, Mistral, xAI, Together, Fireworks, local Ollama /
+LM Studio / llama-server, plus a `--base-url` escape hatch for any
+OpenAI-compatible server. Excluded with reasons: SDK-auth clouds,
+OAuth CLIs, ambiguous endpoints (see `models` output footer).
 
 ## 8. Can shell commands hurt me?
 
