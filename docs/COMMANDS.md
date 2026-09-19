@@ -35,16 +35,32 @@ nimbus-one run [--mode plan|build] [--model MODEL] <message...>
 ```
 
 ReAct loop (≤25 steps, 3 retries per tool with error feedback), memory
-recall injected into the prompt, turns saved, MEMORY.md appended. `plan`
-hides mutating tools and blocks them if attempted; `build` is full access.
+recall injected into the prompt, every turn persisted to `sessions.db`
+(SQLite) with tool-call pairing, MEMORY.md appended. `plan` hides
+mutating tools and blocks them if attempted; `build` is full access.
+Permission verdicts: deny blocks with guidance, ask denies headless
+(fail-closed) — pre-approve via config `routes`/rules in later versions.
 `exec` is identical, for scripts that want the explicit name. On total key
 exhaustion: interactive escalation card on a terminal (new key / switch
-provider / retry), diagnostics + recommendation otherwise.
+provider / retry), diagnostics + recommendation otherwise. HTTP 402
+(out of credits) prints an actionable fix instead of provider JSON.
 
 Disclosed defaults in provider assembly (nothing silent, nothing paid):
 your primary model, then your `fallback_models` in your order, then local
 Ollama (free, on-device, no key) — skipped automatically if you already
 listed it. With no keys at all, Ollama is the only entry.
+
+## Agent tools (model-facing)
+
+`delegate` (args: brief, agent=general|explore, model override,
+background, context_mode): spawns a subagent — explore is read-only by
+construction. `tasks_poll` manages background work. `apply_patch` takes
+a multi-file envelope (GPT-family models see it instead of edit/write).
+`git` (status|diff|log, read-only, workspace-scoped). `cron`
+(schedule|list|cancel|due; in-memory only — restarts clear jobs).
+`ask` interrupts for user input with timeout. Per-kind model routing via
+`routes:` in config.yaml (e.g. `routes: explore=fast-model`) — unset
+kinds inherit the primary; `status` shows active routes.
 
 ## serve [--mode ...] [--no-mdns]
 

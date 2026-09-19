@@ -17,10 +17,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
 	"nimbus-one/internal/config"
+	"nimbus-one/internal/cron"
 	"nimbus-one/internal/daemon"
 	"nimbus-one/internal/doctor"
 	"nimbus-one/internal/engine"
@@ -278,8 +280,9 @@ func bootstrap(ctx context.Context, noisy bool) (*app, error) {
 	// depth cap, background tasks poll via tasks_poll. Same registry, so
 	// subagents see exactly what the user gave the top agent — nothing more.
 	taskReg := engine.NewTasks()
-	toolsReg.Register(&engine.DelegateTool{Eng: eng, Tasks: taskReg})
+	toolsReg.Register(&engine.DelegateTool{Eng: eng, Tasks: taskReg, Models: cfg.Routes})
 	toolsReg.Register(&engine.TasksTool{Tasks: taskReg})
+	toolsReg.Register(&cron.CronTool{Jobs: cron.NewRegistry()})
 	a := &app{cfg: cfg, vault: vault, secrets: sec, ws: ws, store: st, memory: mem, tools: toolsReg, skillz: skillReg, eng: eng, tasks: taskReg, prov: prov}
 	a.system = a.buildSystem()
 	return a, nil
@@ -1456,7 +1459,24 @@ func cmdStatus(cmd string, args []string) int {
 	if telegramToken(a) != "" && len(a.cfg.TelegramAllow) == 0 {
 		fmt.Println("WARNING: telegram token set but allowlist empty — anyone can talk to your bot. Set TELEGRAM_ALLOW_FROM.")
 	}
+	if len(a.cfg.Routes) > 0 {
+		fmt.Printf("routes: %s (unset kinds inherit %s; edit `routes:` in config.yaml)\n", encodeRoutesView(a.cfg.Routes), a.cfg.PrimaryModel)
+	}
 	return 0
+}
+
+// encodeRoutesView renders kind=model pairs for status display.
+func encodeRoutesView(routes map[string]string) string {
+	keys := make([]string, 0, len(routes))
+	for k := range routes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, k+"="+routes[k])
+	}
+	return strings.Join(pairs, ", ")
 }
 
 func onOff(b bool) string {

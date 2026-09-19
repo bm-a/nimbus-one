@@ -87,6 +87,7 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 				result := e.executeWithRetries(ctx, tc)
 				msgs = append(msgs, llm.Message{Role: llm.RoleTool, Content: result, Name: tc.Name, ToolCallID: tc.ID})
 				e.persist(session.RoleTool, result, tc.Name, tc.ID)
+				e.fireHook("tool.after", "tool", "after", map[string]any{"tool": tc.Name, "ok": !isToolFailure(result)})
 			}
 			continue
 		}
@@ -130,6 +131,7 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 			result := e.executeWithRetries(ctx, tc)
 			msgs = append(msgs, llm.Message{Role: llm.RoleTool, Content: result, Name: tc.Name, ToolCallID: tc.ID})
 			e.persist(session.RoleTool, result, tc.Name, tc.ID)
+			e.fireHook("tool.after", "tool", "after", map[string]any{"tool": tc.Name, "ok": !isToolFailure(result)})
 		}
 	}
 	if lastText != "" {

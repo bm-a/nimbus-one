@@ -118,3 +118,32 @@ func TestLoadConfigOverride(t *testing.T) {
 		t.Fatalf("expected heartbeat_every override, got %q", c.HeartbeatEvery)
 	}
 }
+
+func TestLoadRoutesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NIMBUS_DATA_DIR", dir)
+	cfg := "primary_model: main\nroutes: explore=fast-model, research = strong-model , bogus\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfg), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Routes["explore"] != "fast-model" || c.Routes["research"] != "strong-model" {
+		t.Fatalf("routes = %v", c.Routes)
+	}
+	if len(c.Routes) != 2 {
+		t.Fatalf("malformed pair must be skipped, routes = %v", c.Routes)
+	}
+	if err := c.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	c2, err := Load()
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if c2.Routes["explore"] != "fast-model" {
+		t.Fatalf("routes lost on save: %v", c2.Routes)
+	}
+}

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"nimbus-one/internal/llm"
+	"nimbus-one/internal/perms"
 	"nimbus-one/internal/tools"
 )
 
@@ -29,30 +31,91 @@ func depthOf(ctx context.Context) int {
 	return 0
 }
 
+// AgentKind is one delegable subagent shape: a prompt posture plus an
+// optional ruleset override. A nil Ruleset inherits the parent's.
+type AgentKind struct {
+	Name    string
+	Blurb   string
+	Ruleset perms.Ruleset // nil = inherit parent ruleset
+}
+
+// DefaultKinds are the built-in subagent shapes: general inherits the
+// parent's permissions, explore is read-only by construction (denied
+// tools are hidden from it, not merely blocked).
+func DefaultKinds() []AgentKind {
+	return []AgentKind{
+		{Name: "general", Blurb: "broad delegate, inherits your permissions"},
+		{Name: "explore", Blurb: "read-only codebase search", Ruleset: perms.Plan(ReadOnlyToolNames())},
+	}
+}
+
 // DelegateTool spawns a subagent: an isolated Engine run with its own
 // scratchpad over the same tools, either synchronously or in the background
 // via Tasks. This is the multi-agent primitive — fan out, then synthesize.
 // ContextMode selects the child context (see context.go: isolated default,
 // fork same-agent, light brief-only); it can also be set per-call with the
 // "context_mode" arg, which overrides this field.
+//
+// The "agent" arg selects a kind (general default, explore read-only); the
+// "model" arg overrides routing for this child, else the kind's configured
+// route (Models) applies, else the parent model is inherited. Children run
+// unpersisted (their report is persisted as the parent's tool result).
 type DelegateTool struct {
 	Eng         *Engine // usually the parent engine itself; depth cap stops recursion
 	Tasks       *Tasks
 	ContextMode string
+	Kinds       []AgentKind       // nil = DefaultKinds()
+	Models      map[string]string // kind -> model route (user config)
 }
 
 // Name implements tools.Tool.
 func (d *DelegateTool) Name() string { return "delegate" }
 
+func (d *DelegateTool) kinds() []AgentKind {
+	if d.Kinds != nil {
+		return d.Kinds
+	}
+	return DefaultKinds()
+}
+
+func (d *DelegateTool) kindByName(name string) (AgentKind, bool) {
+	for _, k := range d.kinds() {
+		if strings.EqualFold(k.Name, name) {
+			return k, true
+		}
+	}
+	return AgentKind{}, false
+}
+
+func (d *DelegateTool) kindNames() string {
+	names := make([]string, 0)
+	for _, k := range d.kinds() {
+		names = append(names, k.Name)
+	}
+	return strings.Join(names, ", ")
+}
+
 func (d *DelegateTool) Description() string {
-	return "Spawn a subagent for one bounded piece of work (research, parallel " +
+	var b strings.Builder
+	b.WriteString("Spawn a subagent for one bounded piece of work (research, parallel " +
 		"legwork, isolated experiments). Give a self-contained brief; you receive " +
-		"a summary back. Set background=true for long work and poll tasks_poll."
+		"a summary back. Set background=true for long work and poll tasks_poll. " +
+		"Available agent types and the tools they have access to:")
+	for _, k := range d.kinds() {
+		scope := "inherits your permissions"
+		if k.Ruleset != nil {
+			scope = "read-only"
+		}
+		fmt.Fprintf(&b, "\n- %s: %s (%s)", k.Name, k.Blurb, scope)
+	}
+	return b.String()
 }
 
 func (d *DelegateTool) Parameters() map[string]tools.Param {
 	return map[string]tools.Param{
 		"brief":        {Type: "string", Description: "Self-contained task brief for the subagent.", Required: true},
+		"agent":        {Type: "string", Description: "Subagent kind (default general)."},
+		"model":        {Type: "string", Description: "Model override for this child (default: kind route, else parent model)."},
 		"background":   {Type: "boolean", Description: "Run in background; returns a task id for tasks_poll."},
 		"context_mode": {Type: "string", Description: "Child context: isolated (default) | fork (same-agent) | light (brief-only)."},
 	}
@@ -78,6 +141,28 @@ func (d *DelegateTool) Execute(ctx context.Context, args map[string]any) (string
 		return "delegation refused: subagents cannot spawn subagents (depth cap) — " +
 			"finish this piece of work yourself and report back", nil
 	}
+	kindName, _ := args["agent"].(string)
+	if strings.TrimSpace(kindName) == "" {
+		kindName = "general"
+	}
+	kind, ok := d.kindByName(kindName)
+	if !ok {
+		return "", fmt.Errorf("delegate: unknown agent %q (want one of: %s)", kindName, d.kindNames())
+	}
+	// Child engine: a copy of the parent with kind overrides. Ruleset is
+	// replaced (never merged) so explore is read-only by construction;
+	// approvals are fresh so a parent's always-allows never leak down.
+	// Children run unpersisted; their report persists as our tool result.
+	child := *d.Eng
+	child.Session = nil
+	child.SessionID = ""
+	child.Approvals = &perms.Approvals{}
+	if kind.Ruleset != nil {
+		child.Ruleset = kind.Ruleset
+		child.Mode = ModePlan
+	}
+	modelArg, _ := args["model"].(string)
+	child.ModelID = llm.RouteModel(kind.Name, modelArg, d.Models, d.Eng.ModelID)
 	bg, _ := args["background"].(bool)
 	mode := d.ContextMode
 	if m, _ := args["context_mode"].(string); strings.TrimSpace(m) != "" {
@@ -99,7 +184,7 @@ func (d *DelegateTool) Execute(ctx context.Context, args map[string]any) (string
 	run := func(c context.Context) (string, error) {
 		sub, cancel := context.WithTimeout(c, 5*time.Minute)
 		defer cancel()
-		out, err := d.Eng.Run(sub, system, brief)
+		out, err := child.Run(sub, system, brief)
 		if err != nil {
 			return "", err
 		}

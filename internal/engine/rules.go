@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"nimbus-one/internal/hooks"
 	"nimbus-one/internal/llm"
 	"nimbus-one/internal/perms"
 )
@@ -128,13 +129,32 @@ func (e *Engine) resolveAsk(tool, target string) bool {
 
 // blockedMessage explains a deny/ask-fail in model-actionable terms.
 func (e *Engine) blockedMessage(tool, target string, act perms.Action) string {
-	if e.Ruleset == nil && e.CurrentMode() == ModePlan {
+	if e.CurrentMode() == ModePlan {
 		return fmt.Sprintf("tool %q blocked: plan mode is read-only — describe the proposed change as text instead of executing it", tool)
 	}
 	if act == perms.Ask {
 		return fmt.Sprintf("tool %q blocked: %q requires approval (no approval handler configured) — proceed with what you can do without it, or ask the user to approve", tool, target)
 	}
 	return fmt.Sprintf("tool %q blocked by permission policy for %q — proceed without it", tool, target)
+}
+
+// fireHook triggers a lifecycle event; handler messages go to progress.
+// Nil registry is a no-op. Hooks observe the loop — they cannot inject
+// input or veto calls in V1 (that would make them a second permission
+// system shadowing perms).
+func (e *Engine) fireHook(key, family, action string, data map[string]any) {
+	if e.Hooks == nil {
+		return
+	}
+	for _, msg := range e.Hooks.Trigger(hooks.Event{Key: key, Family: family, Action: action, Data: data}) {
+		e.progress(fmt.Sprintf("hook %s: %s", key, msg))
+	}
+}
+
+// isToolFailure reports the executeWithRetries error-feedback shape.
+func isToolFailure(result string) bool {
+	return strings.HasPrefix(result, "tool \"") &&
+		(strings.Contains(result, " failed") || strings.Contains(result, " blocked") || strings.Contains(result, " cancelled"))
 }
 
 // persist records a turn part in the attached session store. Nil store =

@@ -232,3 +232,64 @@ func TestDelegate_EmptyBriefErrors(t *testing.T) {
 		t.Fatalf("provider calls = %d, want 0 for empty brief", n)
 	}
 }
+
+func TestDelegate_UnknownAgentErrors(t *testing.T) {
+	prov := &fakeProvider{text: "x"}
+	d := &DelegateTool{Eng: newTestEngine(prov), Tasks: NewTasks()}
+	if _, err := d.Execute(context.Background(), map[string]any{"brief": "b", "agent": "frobnicate"}); err == nil {
+		t.Fatal("unknown agent kind must error")
+	}
+}
+
+func TestDelegate_ExploreChildIsReadOnly(t *testing.T) {
+	// Parent allows everything; explore child must still hide bash.
+	prov := &fakeProvider{text: "child says hi"}
+	parent := newTestEngine(prov)
+	parent.Ruleset = nil // build default
+	d := &DelegateTool{Eng: parent, Tasks: NewTasks()}
+	out, err := d.Execute(context.Background(), map[string]any{"brief": "look around", "agent": "explore"})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if out != "child says hi" {
+		t.Fatalf("out = %q", out)
+	}
+	// Enforcement proof: a mutating call inside an explore child is
+	// blocked even though the parent allows everything.
+	calls := []llm.ToolCall{{ID: "1", Name: "bash", Arguments: `{"command":"rm -rf /"}`}}
+	execProv := &reactScriptProvider{resps: []reactScriptResp{
+		{text: "", calls: calls},
+		{text: "after block"},
+	}}
+	execParent := &Engine{LLM: execProv, Tools: tools.NewRegistry(), MaxSteps: 5}
+	d2 := &DelegateTool{Eng: execParent, Tasks: NewTasks()}
+	if _, err := d2.Execute(context.Background(), map[string]any{"brief": "b", "agent": "explore"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	blocked := false
+	for _, req := range execProv.requests {
+		for _, m := range req.Messages {
+			if m.Role == llm.RoleTool && strings.Contains(m.Content, "plan mode is read-only") {
+				blocked = true
+			}
+		}
+	}
+	if !blocked {
+		t.Fatal("explore child did not block the mutating call")
+	}
+}
+
+func TestDelegate_ModelRouting(t *testing.T) {
+	parent := newTestEngine(&fakeProvider{text: "done"})
+	parent.ModelID = "main-model"
+	d := &DelegateTool{Eng: parent, Tasks: NewTasks(), Models: map[string]string{"explore": "fast-model"}}
+	if got := llm.RouteModel("explore", "", d.Models, d.Eng.ModelID); got != "fast-model" {
+		t.Fatalf("kind route = %q, want fast-model", got)
+	}
+	if got := llm.RouteModel("general", "per-call", d.Models, d.Eng.ModelID); got != "per-call" {
+		t.Fatalf("explicit = %q", got)
+	}
+	if got := llm.RouteModel("general", "", d.Models, d.Eng.ModelID); got != "main-model" {
+		t.Fatalf("inherit = %q", got)
+	}
+}

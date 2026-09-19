@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"nimbus-one/internal/hooks"
 	"nimbus-one/internal/llm"
 	"nimbus-one/internal/llm/pool"
 	"nimbus-one/internal/perms"
@@ -40,6 +41,10 @@ type Engine struct {
 	// BudgetWindow overrides the context window for compaction (0 = auto
 	// from the model catalog). Tests set a tiny window to force stages.
 	BudgetWindow int
+	// Hooks receives lifecycle events (session.start, tool.after). Nil =
+	// no listeners. Handler output goes to progress only — hooks observe,
+	// they never inject loop input in V1.
+	Hooks *hooks.Registry
 }
 
 func (e *Engine) maxSteps() int {
@@ -111,6 +116,7 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Content: user})
 	e.persist(session.RoleUser, user, "", "")
 	mode := e.CurrentMode()
+	e.fireHook("session.start", "session", "start", map[string]any{"model": e.ModelID, "mode": mode})
 	defs := registryToDefs(e.Tools)
 	defs = filterDefsByRuleset(defs, e.effectiveRuleset())
 	defs = filterDefsByShape(defs, shapeFor(e.ModelID))
@@ -162,6 +168,7 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 				ToolCallID: tc.ID,
 			})
 			e.persist(session.RoleTool, result, tc.Name, tc.ID)
+			e.fireHook("tool.after", "tool", "after", map[string]any{"tool": tc.Name, "ok": !isToolFailure(result)})
 		}
 	}
 	if lastText != "" {

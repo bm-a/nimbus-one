@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -23,11 +24,15 @@ type Config struct {
 	HeartbeatEvery string
 	PrimaryModel   string
 	FallbackModels []string
-	APIKeys        map[string]string // provider -> key
-	BaseURLs       map[string]string // provider -> base URL
-	MaxSteps       int
-	ContextLimit   int
-	LogLevel       string
+	// Routes maps task kinds to models (e.g. explore=gpt-4o-mini).
+	// User-controlled only: unset kinds inherit the primary model.
+	// Never auto-populated, never silently switched.
+	Routes       map[string]string
+	APIKeys      map[string]string // provider -> key
+	BaseURLs     map[string]string // provider -> base URL
+	MaxSteps     int
+	ContextLimit int
+	LogLevel     string
 }
 
 // IsTermux reports whether we run inside Termux/Android.
@@ -224,6 +229,23 @@ func Load() (*Config, error) {
 				}
 			}
 			c.FallbackModels = models
+		case "routes":
+			// Per-kind model routing, comma-separated kind=model pairs.
+			// Example: routes: explore=gpt-4o-mini, research=claude-sonnet-4
+			if c.Routes == nil {
+				c.Routes = map[string]string{}
+			}
+			for _, pair := range strings.Split(v, ",") {
+				kv := strings.SplitN(pair, "=", 2)
+				if len(kv) != 2 {
+					continue
+				}
+				k := strings.ToLower(strings.TrimSpace(kv[0]))
+				m := strings.TrimSpace(kv[1])
+				if k != "" && m != "" {
+					c.Routes[k] = m
+				}
+			}
 		}
 	}
 	return c, nil
@@ -239,6 +261,7 @@ func (c *Config) Save() error {
 		"http_port":       itoa(c.HTTPPort),
 		"http_bind":       c.HTTPBind,
 		"fallback_models": strings.Join(c.FallbackModels, ", "),
+		"routes":          encodeRoutes(c.Routes),
 	}
 	var lines []string
 	seen := map[string]bool{}
@@ -277,6 +300,23 @@ func (c *Config) Save() error {
 		return err
 	}
 	return os.Rename(tmp, c.ConfigFile)
+}
+
+// encodeRoutes serializes kind=model pairs deterministically (sorted).
+func encodeRoutes(routes map[string]string) string {
+	if len(routes) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(routes))
+	for k := range routes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, k+"="+routes[k])
+	}
+	return strings.Join(pairs, ", ")
 }
 
 func itoa(n int) string {

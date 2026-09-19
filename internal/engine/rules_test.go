@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"nimbus-one/internal/hooks"
 	"nimbus-one/internal/llm"
 	"nimbus-one/internal/perms"
 	"nimbus-one/internal/session"
@@ -190,5 +191,28 @@ func TestRules_SessionPersist(t *testing.T) {
 	}
 	if h[2].ToolCallID != "1" || h[2].Name != "upper" {
 		t.Fatalf("tool row = %+v, want pairing preserved", h[2])
+	}
+}
+
+func TestRules_HooksFire(t *testing.T) {
+	prov := &reactScriptProvider{resps: []reactScriptResp{
+		{text: "", calls: []llm.ToolCall{{ID: "1", Name: "upper", Arguments: `{"text":"hi"}`}}},
+		{text: "done"},
+	}}
+	reg := tools.NewRegistry()
+	reg.Register(&reactUpperTool{})
+	reg2 := hooks.NewRegistry()
+	var got []string
+	reg2.On("session.start", func(ev hooks.Event) string { got = append(got, "start"); return "" })
+	reg2.On("tool.after", func(ev hooks.Event) string {
+		got = append(got, "after:"+ev.Data["tool"].(string))
+		return ""
+	})
+	e := &Engine{LLM: prov, Tools: reg, MaxSteps: 5, Hooks: reg2}
+	if _, err := e.Run(context.Background(), "sys", "hi"); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if strings.Join(got, ",") != "start,after:upper" {
+		t.Fatalf("hook sequence = %v", got)
 	}
 }
