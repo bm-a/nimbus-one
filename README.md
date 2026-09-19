@@ -2,6 +2,12 @@
 
 [![CI](https://github.com/bm-a/nimbus-one/actions/workflows/ci.yml/badge.svg)](https://github.com/bm-a/nimbus-one/actions)
 
+> **Current product: [`nimbus-min/`](nimbus-min/)** — the minimal
+> Anthropic-only coding assistant (one workspace, five tools, typed-`yes`
+> shell gate). Start there: [`nimbus-min/README.md`](nimbus-min/README.md).
+> The rest of this repository is the prior full-scope prototype tree and
+> is not the product.
+
 > **Beta (0.1.0-beta).** Everything works; flags and APIs may still shift.
 > Pin setups to a checksum and report breakage with
 > `nimbus-one doctor --bundle support.zip`.

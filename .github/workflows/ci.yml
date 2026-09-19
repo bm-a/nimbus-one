@@ -20,3 +20,20 @@ jobs:
       - run: CGO_ENABLED=0 go build -o nimbus-one ./cmd/nimbus-one
       - run: ./nimbus-one selftest
       - run: ./nimbus-one version
+
+  min:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nimbus-min
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -count=1 -timeout 60s ./...
+      - run: CGO_ENABLED=0 go build -o nimbus-min .
+      - run: ./nimbus-min version
