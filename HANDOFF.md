@@ -16,12 +16,10 @@ skills + MCP, Telegram/Discord/HTTP channels, heartbeat daemon, voice, and
 diagnostics. Local-first (Markdown state, JSONL history, encrypted secrets);
 no telemetry, no accounts, no callbacks.
 
-**Version state: `0.1.0-beta`** (`const version` in `cmd/nimbus-one/main.go:43`).
-README carries the beta banner. Ten commits on `main` (see §3/§9).
-Working tree clean at handoff time. If `git status` is dirty, verify
-(§6) then commit. New deps since the mega-build: `modernc.org/sqlite`
-(session store) — allowed by AGENTS.md rule 1; `go 1.24.2` directive
-pinned (CI uses Go 1.24).
+**Version state: `0.1.0-beta`** (legacy tree) + **`nimbus-min 0.1.0`**
+(the product — see §10). Root README fronts `nimbus-min/`; the legacy
+`cmd/nimbus-one` tree is prototype reference. Eleven commits on `main`.
+Working tree clean at handoff time.
 
 ---
 
@@ -331,3 +329,40 @@ vet/test/selftest 15/15/cross ×5, pushed.
 - Deferred (documented in code): child session persistence, cron SQLite
   + daemon execution, serve/broker lanes wiring, git worktrees, dynamic
   task descriptions, official MCP SDK, tsnet/chromedp.
+
+## 10. Nimbus-One minimal runtime (2026-09-20, commit `64d57a2`)
+
+New direction, user-approved spec: minimal Anthropic-only agent for a
+non-programmer. Built in `nimbus-min/` (own Go module, stdlib only,
+zero deps) — legacy tree untouched. All green: gofmt/vet/test,
+`CGO_ENABLED=0` build, clean-clone rebuild + retest, pushed.
+
+- Scope lock: 5 tools (read/write/edit/list/shell), 1 workspace,
+  Anthropic-only, no persistence/channels/memory/DB/scheduling.
+  Anything outside needs explicit approval.
+- Jail (`jail.go`): relative-only paths, `..`/absolute/NUL rejected,
+  symlink-escape defense both directions, shell-text scanner +
+  locked `cmd.Dir`. Bugs found in testing: ancestor-walk dropped a
+  segment (fixed), quoted absolute paths slipped the first scanner
+  (scanner rewritten to split on quotes/operators).
+- Confirm gate (`confirm.go`): mandatory typed-`yes`, NO allowlists
+  (user correction), headless refuses with guidance.
+- Loop (`loop.go`/`anthropic.go`): tool_use→validate→execute→result,
+  25-turn cap, malformed/empty/401 handling; `netguard.go` dials only
+  api.anthropic.com:443.
+- App compat (`compat.go`, hand-rolled RFC6455): connect→hello-ok
+  (protocol 4), chat.send, sessions.list; everything else
+  UNKNOWN_METHOD (pairing/Tailscale/nodes NOT faked). Green control
+  page served at `/`. Live-socket verified (auth, hello-ok,
+  list, no-key AGENT_FAILED).
+- Onboard wizard (OpenClaw order, minimal): consent → key → workspace
+  → `0600` config + minted token. Unknown config fields rejected.
+- Docs: `nimbus-min/README.md` (non-programmer), `SECURITY.md`
+  (exact enforcement + honest limits), `DECISIONS.md` (9 trade-offs).
+- Emulator (fresh user, real binary): onboard, no-key/broken-config/
+  unknown-command errors, serve health/page/WS — all correct.
+- NOT done: live Anthropic turn (user runs it with their key —
+  fake-server loop tests cover the path); legacy-tree Phases 2–3
+  live emulation still pending credits (see §8d).
+- Repo: root README fronts `nimbus-min/` as the product; CI has a
+  `min` job; no secrets/artifacts committed.
