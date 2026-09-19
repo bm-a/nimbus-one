@@ -26,7 +26,10 @@ var errSearchCap = errors.New("search: result cap reached")
 // "list ." means the workspace — not whatever directory the binary was
 // launched from. With empty allow it requires a non-empty absolute path.
 func resolveWithinAllow(p string, allow []string) (string, error) {
-	if strings.TrimSpace(p) == "" {
+	// Models routinely emit "path ": stray whitespace is trimmed so a
+	// trailing space doesn't become a confusing ENOENT.
+	p = strings.TrimSpace(p)
+	if p == "" {
 		return "", fmt.Errorf("empty path")
 	}
 	if strings.ContainsRune(p, 0) {

@@ -30,8 +30,10 @@ import (
 	"nimbus-one/internal/log"
 	"nimbus-one/internal/media"
 	"nimbus-one/internal/netdiscover"
+	"nimbus-one/internal/perms"
 	"nimbus-one/internal/secure"
 	"nimbus-one/internal/selftest"
+	"nimbus-one/internal/session"
 	"nimbus-one/internal/setup"
 	"nimbus-one/internal/skills"
 	"nimbus-one/internal/state"
@@ -739,6 +741,7 @@ func cmdRun(cmd string, args []string) int {
 		return 1
 	}
 	a.eng.SetMode(mode)
+	attachSession(a, cmd)
 	if model != "" {
 		a.cfg.PrimaryModel = model
 		a.prov = buildProvider(ctx, a.cfg, a.secrets, true)
@@ -758,6 +761,26 @@ func cmdRun(cmd string, args []string) int {
 	a.remember("repl", "assistant", reply)
 	a.appendMemory(prompt, reply)
 	return 0
+}
+
+// attachSession wires SQLite turn persistence into the engine for run/exec.
+// Best-effort by design: a store failure warns on stderr and the run
+// continues unpersisted — the answer matters more than the archive.
+func attachSession(a *app, cmd string) {
+	st, err := session.Open(filepath.Join(a.cfg.DataDir, "sessions.db"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: session store unavailable (%v) — turns will not be persisted.\n", secure.Redact(err.Error()))
+		return
+	}
+	sid, err := st.CreateSession("", cmd, a.cfg.WorkspaceDir, a.cfg.PrimaryModel)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: session create failed (%v) — turns will not be persisted.\n", secure.Redact(err.Error()))
+		_ = st.Close()
+		return
+	}
+	a.eng.Session = st
+	a.eng.SessionID = sid
+	a.eng.Approvals = &perms.Approvals{}
 }
 
 func asExhausted(err error) (*pool.ExhaustedError, bool) {

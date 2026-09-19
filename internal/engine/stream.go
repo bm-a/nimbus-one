@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"nimbus-one/internal/llm"
+	"nimbus-one/internal/session"
 )
 
 // RunStream executes the ReAct loop like Run, forwarding provider Chat deltas
@@ -32,10 +33,10 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: system})
 	}
 	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Content: user})
-	mode := e.CurrentMode()
+	e.persist(session.RoleUser, user, "", "")
 	defs := registryToDefs(e.Tools)
-	if mode == ModePlan {
-		defs = filterReadOnlyDefs(defs)
+	defs = filterDefsByRuleset(defs, e.effectiveRuleset())
+	if e.Ruleset == nil && e.CurrentMode() == ModePlan {
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: "PLAN MODE: read-only. Inspect files, search, and fetch URLs. Do NOT attempt writes, shell commands, or any mutating actions — propose changes as text instead."})
 	}
 
@@ -71,6 +72,7 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 			}
 			emitChunk(llm.Chunk{Delta: text, ToolCalls: calls, Done: true})
 			msgs = append(msgs, llm.Message{Role: llm.RoleAssistant, Content: text, ToolCalls: calls})
+			e.persist(session.RoleAssistant, text, "", "")
 			if len(calls) == 0 {
 				return text, nil
 			}
@@ -80,8 +82,9 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 				if err := ctx.Err(); err != nil {
 					return "", err
 				}
-				result := e.executeWithRetries(ctx, tc, e.CurrentMode())
+				result := e.executeWithRetries(ctx, tc)
 				msgs = append(msgs, llm.Message{Role: llm.RoleTool, Content: result, Name: tc.Name, ToolCallID: tc.ID})
+				e.persist(session.RoleTool, result, tc.Name, tc.ID)
 			}
 			continue
 		}
@@ -112,6 +115,7 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 		text := sb.String()
 		emitChunk(llm.Chunk{ToolCalls: calls, Done: true})
 		msgs = append(msgs, llm.Message{Role: llm.RoleAssistant, Content: text, ToolCalls: calls})
+		e.persist(session.RoleAssistant, text, "", "")
 		if len(calls) == 0 {
 			return text, nil
 		}
@@ -121,8 +125,9 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			result := e.executeWithRetries(ctx, tc, e.CurrentMode())
+			result := e.executeWithRetries(ctx, tc)
 			msgs = append(msgs, llm.Message{Role: llm.RoleTool, Content: result, Name: tc.Name, ToolCallID: tc.ID})
+			e.persist(session.RoleTool, result, tc.Name, tc.ID)
 		}
 	}
 	if lastText != "" {

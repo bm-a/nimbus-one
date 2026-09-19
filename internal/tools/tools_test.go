@@ -66,6 +66,11 @@ func TestRelativePathsResolveToWorkspace(t *testing.T) {
 	if _, err := w.Execute(ctx, map[string]any{"path": "../escape.txt", "content": "x"}); err == nil {
 		t.Fatal("path escape must be rejected")
 	}
+	// Stray whitespace (a chronic model habit) is trimmed, not ENOENT.
+	out, err = l.Execute(ctx, map[string]any{"path": ". "})
+	if err != nil || !strings.Contains(out, "rel.txt") {
+		t.Fatalf("list '. ' must trim and show workspace: out=%q err=%v", out, err)
+	}
 }
 
 func TestReadWriteListRoundtrip(t *testing.T) {

@@ -15,8 +15,9 @@ with no Node.js, Python, Chromium, or new hardware.
 ## Non-negotiable rules
 
 1. **Stdlib first.** New code uses only the standard library unless a pure-Go
-   module is already in `go.mod` (bubbletea/lipgloss/bubbles/fsnotify).
-   Never add Cgo, never add network daemons, never add runtimes.
+   module is already in `go.mod` (bubbletea/lipgloss/bubbles/fsnotify,
+   modernc.org/sqlite for the session store). Never add Cgo, never add
+   network daemons, never add runtimes.
 2. **No stubs.** No `TODO`, no placeholders, no dead code. If a platform
    can't do something, degrade with a warning, not a silent no-op.
 3. **User chooses.** No hardcoded model fallback chains, no silent provider

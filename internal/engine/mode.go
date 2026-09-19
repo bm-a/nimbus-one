@@ -22,8 +22,9 @@ const (
 	ModeBuild = "build"
 )
 
-// readOnlyTools are safe in plan mode. Everything else is treated as mutating
-// and blocked unless mode == build.
+// readOnlyTools are the plan-mode allowlist. Everything else is denied by
+// the plan preset in effectiveRuleset (rules.go). Kept as the single source
+// of truth so plan/explore presets cannot drift apart.
 var readOnlyTools = map[string]bool{
 	"read":       true,
 	"list":       true,
@@ -32,6 +33,10 @@ var readOnlyTools = map[string]bool{
 	"web_search": true,
 }
 
+// ReadOnlyToolNames returns the sorted plan-mode allowlist (used for the
+// plan/explore permission presets).
+func ReadOnlyToolNames() []string { return readOnlyNames() }
+
 // NormalizeMode returns ModeBuild for any unknown value (seamless default).
 func NormalizeMode(m string) string {
 	if m == ModePlan {
@@ -39,9 +44,6 @@ func NormalizeMode(m string) string {
 	}
 	return ModeBuild
 }
-
-// IsReadOnlyTool reports whether a tool may run in plan mode.
-func IsReadOnlyTool(name string) bool { return readOnlyTools[name] }
 
 // debugf prints tool-call traces to stderr when NIMBUS_DEBUG is set.
 // Permanent support tap: `NIMBUS_DEBUG=1 nimbus-one run ...` shows every
@@ -70,18 +72,6 @@ func (e *Engine) CurrentMode() string {
 	modeMu.RLock()
 	defer modeMu.RUnlock()
 	return NormalizeMode(e.Mode)
-}
-
-// filterReadOnlyDefs hides mutating tools from the model in plan mode so it
-// plans with words instead of attempting blocked calls.
-func filterReadOnlyDefs(defs []llm.ToolDef) []llm.ToolDef {
-	out := defs[:0:0]
-	for _, d := range defs {
-		if IsReadOnlyTool(d.Name) {
-			out = append(out, d)
-		}
-	}
-	return out
 }
 
 // compactOldest drops the oldest pct% of non-system history and inserts an

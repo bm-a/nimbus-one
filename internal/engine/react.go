@@ -3,25 +3,36 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"nimbus-one/internal/llm"
 	"nimbus-one/internal/llm/pool"
+	"nimbus-one/internal/perms"
+	"nimbus-one/internal/session"
 	"nimbus-one/internal/tools"
 )
 
 // Engine runs the observe-orient-decide-act loop against an LLM provider.
 // Mode is optional and seamless: "build" (default, full access) or "plan"
 // (read-only — mutating tools are blocked with an explanatory message).
+//
+// Ruleset (Phase 0) overrides the mode preset when set: tool visibility and
+// execution are decided by perms.Evaluate. Ask verdicts consult Ask (nil =
+// headless = deny with guidance). Approvals accumulates session always-allows.
+// When Session+SessionID are set, every turn part is persisted best-effort.
 type Engine struct {
 	LLM        llm.Provider
 	Tools      *tools.Registry
 	MaxSteps   int
 	Mode       string
 	OnProgress func(string)
+	Ruleset    perms.Ruleset
+	Ask        perms.AskFunc
+	Approvals  *perms.Approvals
+	Session    *session.Store
+	SessionID  string
 }
 
 func (e *Engine) maxSteps() int {
@@ -91,10 +102,11 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: system})
 	}
 	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Content: user})
+	e.persist(session.RoleUser, user, "", "")
 	mode := e.CurrentMode()
 	defs := registryToDefs(e.Tools)
-	if mode == ModePlan {
-		defs = filterReadOnlyDefs(defs)
+	defs = filterDefsByRuleset(defs, e.effectiveRuleset())
+	if e.Ruleset == nil && mode == ModePlan {
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: "PLAN MODE: read-only. Inspect files, search, and fetch URLs. Do NOT attempt writes, shell commands, or any mutating actions — propose changes as text instead."})
 	}
 
@@ -123,6 +135,7 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 			return "", fmt.Errorf("engine: step %d llm call: %w", step+1, err)
 		}
 		msgs = append(msgs, llm.Message{Role: llm.RoleAssistant, Content: text, ToolCalls: calls})
+		e.persist(session.RoleAssistant, text, "", "")
 		if len(calls) == 0 {
 			return text, nil
 		}
@@ -132,13 +145,14 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			result := e.executeWithRetries(ctx, tc, e.CurrentMode())
+			result := e.executeWithRetries(ctx, tc)
 			msgs = append(msgs, llm.Message{
 				Role:       llm.RoleTool,
 				Content:    result,
 				Name:       tc.Name,
 				ToolCallID: tc.ID,
 			})
+			e.persist(session.RoleTool, result, tc.Name, tc.ID)
 		}
 	}
 	if lastText != "" {
@@ -149,10 +163,19 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 
 // executeWithRetries parses JSON args and executes a tool up to 3 times,
 // returning the success output or an error-feedback string for the model.
-// In plan mode, mutating tools are blocked without executing.
-func (e *Engine) executeWithRetries(ctx context.Context, tc llm.ToolCall, mode string) string {
-	if mode == ModePlan && !IsReadOnlyTool(tc.Name) {
-		return fmt.Sprintf("tool %q blocked: plan mode is read-only — describe the proposed change as text instead of executing it", tc.Name)
+// Permission verdicts (deny/ask) are enforced before any execution.
+func (e *Engine) executeWithRetries(ctx context.Context, tc llm.ToolCall) string {
+	act, target, args, argErr := e.checkCall(tc)
+	if argErr != nil {
+		return fmt.Sprintf("tool %q failed: invalid JSON arguments: %v (arguments were: %s)", tc.Name, argErr, tc.Arguments)
+	}
+	switch act {
+	case perms.Deny:
+		return e.blockedMessage(tc.Name, target, act)
+	case perms.Ask:
+		if !e.resolveAsk(tc.Name, target) {
+			return e.blockedMessage(tc.Name, target, act)
+		}
 	}
 	if e.Tools == nil {
 		return fmt.Sprintf("tool %q failed: no tool registry configured", tc.Name)
@@ -160,12 +183,6 @@ func (e *Engine) executeWithRetries(ctx context.Context, tc llm.ToolCall, mode s
 	tool, ok := e.Tools.Get(tc.Name)
 	if !ok {
 		return fmt.Sprintf("tool %q failed: unknown tool (available: %s)", tc.Name, strings.Join(e.Tools.Names(), ", "))
-	}
-	var args map[string]any
-	if strings.TrimSpace(tc.Arguments) == "" {
-		args = map[string]any{}
-	} else if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
-		return fmt.Sprintf("tool %q failed: invalid JSON arguments: %v (arguments were: %s)", tc.Name, err, tc.Arguments)
 	}
 	debugf("tool call %s(%s)", tc.Name, tc.Arguments)
 	var lastErr error
