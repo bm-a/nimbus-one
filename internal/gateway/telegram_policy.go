@@ -20,15 +20,15 @@ type GroupPolicy struct {
 // The Telegram struct itself is owned elsewhere, so policy lives here and
 // telegram.go consults it via tiny hooks.
 type PolicyStore struct {
-	Mu                sync.RWMutex
-	GroupPolicy       string // open|disabled|allowlist ("" = open)
-	GroupAllow        []string
-	Groups            map[int64]GroupPolicy
-	TextChunkLimit    int
+	Mu                 sync.RWMutex
+	GroupPolicy        string // open|disabled|allowlist ("" = open)
+	GroupAllow         []string
+	Groups             map[int64]GroupPolicy
+	TextChunkLimit     int
 	StreamingChunkMode string // length|newline ("" = length)
-	HealthOK          bool
-	LastOK            time.Time
-	FailStreak        int
+	HealthOK           bool
+	LastOK             time.Time
+	FailStreak         int
 }
 
 // groupMode normalizes the group policy name; empty means open.
