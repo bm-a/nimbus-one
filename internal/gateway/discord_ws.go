@@ -91,6 +91,9 @@ type Gateway struct {
 	Broker  *Broker
 	Intents int
 
+	// BaseURL overrides the REST root (defaultDiscordBase) for tests.
+	BaseURL string
+
 	baseURL string
 	wsURL   string
 
@@ -99,6 +102,9 @@ type Gateway struct {
 }
 
 func (g *Gateway) restBase() string {
+	if g.BaseURL != "" {
+		return strings.TrimSuffix(g.BaseURL, "/")
+	}
 	if g.baseURL != "" {
 		return strings.TrimSuffix(g.baseURL, "/")
 	}

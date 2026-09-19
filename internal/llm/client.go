@@ -105,6 +105,14 @@ type oaRequest struct {
 	Temperature float64     `json:"temperature,omitempty"`
 	MaxTokens   int         `json:"max_tokens,omitempty"`
 	Stream      bool        `json:"stream"`
+	// StreamOptions asks usage-capable servers to emit a final usage
+	// chunk (OpenAI stream_options.include_usage). Ignored elsewhere.
+	StreamOptions *oaStreamOptions `json:"stream_options,omitempty"`
+}
+
+// oaStreamOptions mirrors OpenAI's stream_options object.
+type oaStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 type oaStreamChoiceDelta struct {
@@ -122,6 +130,10 @@ type oaStreamChunk struct {
 		Delta        oaStreamChoiceDelta `json:"delta"`
 		FinishReason string              `json:"finish_reason,omitempty"`
 	} `json:"choices"`
+	// Usage arrives in the terminal chunk when the server honors
+	// stream_options.include_usage (OpenAI) or always (llama.cpp
+	// timings-style metadata). Decoded generically, normalized later.
+	Usage map[string]any `json:"usage"`
 }
 
 type oaNonStreamResp struct {
@@ -133,6 +145,7 @@ type oaNonStreamResp struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	Usage map[string]any `json:"usage"`
 }
 
 func toOAMessages(msgs []Message) []oaMessage {
@@ -217,6 +230,9 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
 		Stream:      true,
+		// Ask for a terminal usage chunk; servers that do not support
+		// stream_options ignore it and RawTokens stays the fallback.
+		StreamOptions: &oaStreamOptions{IncludeUsage: true},
 	}
 	resp, err := doPost(ctx, c.httpClient(), c.baseURL()+"/chat/completions", c.APIKey, oreq)
 	if err != nil {
@@ -237,6 +253,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 		if err := json.Unmarshal(b, &ns); err != nil {
 			return nil, fmt.Errorf("llm: decode non-stream body: %w", err)
 		}
+		usage := Normalize("openai", ns.Usage)
 		ch := make(chan Chunk, 4)
 		go func() {
 			defer close(ch)
@@ -246,7 +263,11 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 					tcs = append(tcs, ToolCall{ID: tc.ID, Name: tc.Function.Name, Arguments: tc.Function.Arguments})
 				}
 				if choice.Message.Content != "" {
-					ch <- Chunk{Delta: choice.Message.Content, RawTokens: len(choice.Message.Content) / 4}
+					ck := Chunk{Delta: choice.Message.Content, Usage: usage}
+					if usage.IsZero() {
+						ck.RawTokens = len(choice.Message.Content) / 4
+					}
+					ch <- ck
 				}
 				_ = tcs
 			}
@@ -256,7 +277,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 					all = append(all, ToolCall{ID: tc.ID, Name: tc.Function.Name, Arguments: tc.Function.Arguments})
 				}
 			}
-			ch <- Chunk{ToolCalls: all, Done: true}
+			ch <- Chunk{ToolCalls: all, Done: true, Usage: usage}
 		}()
 		return ch, nil
 	}
@@ -273,6 +294,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 			args strings.Builder
 		}
 		accs := map[int]*acc{}
+		var streamUsage Usage // accumulated terminal usage chunks
 		emit := func(ck Chunk) bool {
 			select {
 			case <-ctx.Done():
@@ -304,6 +326,9 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 			var evt oaStreamChunk
 			if err := json.Unmarshal([]byte(data), &evt); err != nil {
 				continue // skip malformed heartbeat lines
+			}
+			if len(evt.Usage) > 0 {
+				streamUsage = streamUsage.Add(Normalize("openai", evt.Usage))
 			}
 			for _, choice := range evt.Choices {
 				if choice.Delta.Content != "" {
@@ -348,7 +373,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (<-chan Chunk, error
 				tcs = append(tcs, ToolCall{ID: a.id, Name: a.name, Arguments: a.args.String()})
 			}
 		}
-		emit(Chunk{ToolCalls: tcs, Done: true})
+		emit(Chunk{ToolCalls: tcs, Done: true, Usage: streamUsage})
 	}()
 	return ch, nil
 }

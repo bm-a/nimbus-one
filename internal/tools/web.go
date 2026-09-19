@@ -83,8 +83,8 @@ func (t *FetchTool) Execute(ctx context.Context, args map[string]any) (string, e
 	return truncateBytes(text, WebFetchLimit), nil
 }
 
-// SearchTool2 searches the web via DuckDuckGo (no API key). Tool name:
-// "web_search".
+// SearchTool2 searches the web via keyed providers (Brave/Tavily/Exa when
+// API keys are set) with a DuckDuckGo fallback. Tool name: "web_search".
 type SearchTool2 struct {
 	Timeout time.Duration
 }
@@ -124,6 +124,10 @@ func (t *SearchTool2) Execute(ctx context.Context, args map[string]any) (string,
 	client, err := webClient(t.Timeout)
 	if err != nil {
 		return "", err
+	}
+	// Keyed provider chain first (Brave → Tavily → Exa); DDG scrape fallback.
+	if _, out, ok := searchWithProviders(ctx, client, q, count); ok {
+		return out, nil
 	}
 	endpoint := "https://html.duckduckgo.com/html/?q=" + url.QueryEscape(q)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)

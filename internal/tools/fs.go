@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -160,6 +161,10 @@ func (t *WriteTool) Parameters() map[string]Param {
 
 // Execute writes content to path.
 func (t *WriteTool) Execute(ctx context.Context, args map[string]any) (string, error) {
+	if err := Policy.CheckWrite(stringArg(args, "path")); err != nil {
+		DefaultAudit.Record("write", stringArg(args, "path"), false, err.Error())
+		return "", err
+	}
 	abs, err := resolveWithinAllow(stringArg(args, "path"), t.AllowDirs)
 	if err != nil {
 		return "", fmt.Errorf("write: %w", err)
@@ -255,16 +260,17 @@ func (t *SearchTool) Name() string { return "search" }
 
 // Description describes the search tool.
 func (t *SearchTool) Description() string {
-	return "Search YOUR workspace filenames and contents (case-sensitive substring, max 50 results, always allowed). Args: root (directory, use \".\" for workspace), query|pattern (required), content (search contents, default true). Never claim inability without calling first."
+	return "Search YOUR workspace filenames and contents (max 50 results, always allowed). Args: root (directory, use \".\" for workspace), query|pattern (required; prefix \"re:\" for regexp), content (search contents, default true), context_n (content context lines, 0-10, default 0). Respects .gitignore. Never claim inability without calling first."
 }
 
 // Parameters describes the search arguments.
 func (t *SearchTool) Parameters() map[string]Param {
 	return map[string]Param{
-		"root":    {Type: "string", Description: "Directory to search (default: first allowed dir)"},
-		"query":   {Type: "string", Description: "Substring to match", Required: true},
-		"pattern": {Type: "string", Description: "Alias for query"},
-		"content": {Type: "boolean", Description: "Also search file contents (default true)"},
+		"root":      {Type: "string", Description: "Directory to search (default: first allowed dir)"},
+		"query":     {Type: "string", Description: "Substring to match, or re:PATTERN for regexp", Required: true},
+		"pattern":   {Type: "string", Description: "Alias for query"},
+		"content":   {Type: "boolean", Description: "Also search file contents (default true)"},
+		"context_n": {Type: "number", Description: "Content context lines around each hit (0-10, default 0)"},
 	}
 }
 
@@ -314,6 +320,34 @@ func (t *SearchTool) Execute(ctx context.Context, args map[string]any) (string, 
 			withContent = l != "false" && l != "0" && l != "no"
 		}
 	}
+	contextN := 0
+	if v, ok := numberArg(args, "context_n"); ok && v > 0 {
+		contextN = int(v)
+		if contextN > 10 {
+			contextN = 10
+		}
+	}
+	// "re:" prefix switches filename and content matching to regexp.
+	var re *regexp.Regexp
+	if strings.HasPrefix(query, "re:") {
+		pat := strings.TrimPrefix(query, "re:")
+		if strings.TrimSpace(pat) == "" {
+			return "", fmt.Errorf("search: empty regexp after \"re:\"")
+		}
+		var err error
+		re, err = regexp.Compile(pat)
+		if err != nil {
+			return "", fmt.Errorf("search: bad regexp: %w", err)
+		}
+	}
+	matchName := func(name string) bool {
+		if re != nil {
+			return re.MatchString(name)
+		}
+		return strings.Contains(name, query)
+	}
+	// .gitignore at the search root prunes ignored files and dirs.
+	ig, _ := LoadDir(abs)
 
 	var results []string
 	add := func(s string) bool {
@@ -334,19 +368,27 @@ func (t *SearchTool) Execute(ctx context.Context, args map[string]any) (string, 
 			if d.Name() == ".git" && p != abs {
 				return filepath.SkipDir
 			}
+			if p != abs {
+				if rel, rerr := filepath.Rel(abs, p); rerr == nil && ig.Matched(rel) {
+					return filepath.SkipDir
+				}
+			}
 			return nil
 		}
 		rel := p
 		if r, rerr := filepath.Rel(abs, p); rerr == nil {
 			rel = r
 		}
-		if strings.Contains(d.Name(), query) {
+		if ig.Matched(rel) {
+			return nil
+		}
+		if matchName(d.Name()) {
 			if !add(rel) {
 				return errSearchCap
 			}
 		}
 		if withContent {
-			matches, merr := contentMatches(p, query, 3)
+			matches, merr := contentMatchesEx(p, query, re, 3, contextN)
 			if merr != nil {
 				return nil
 			}
@@ -376,6 +418,14 @@ func (t *SearchTool) Execute(ctx context.Context, args map[string]any) (string, 
 // contentMatches returns up to maxLines "lineno:text" content hits.
 // Files over 512KB, unreadable files, and binary files are skipped.
 func contentMatches(path, query string, maxLines int) ([]string, error) {
+	return contentMatchesEx(path, query, nil, maxLines, 0)
+}
+
+// contentMatchesEx matches file content by substring (re == nil) or regexp,
+// returning up to maxLines hits. With contextN > 0, each hit is emitted with
+// ±contextN surrounding lines: hits as "lineno:text", context as
+// "lineno~text" (tilde marks non-hit context, windows merged in order).
+func contentMatchesEx(path, query string, re *regexp.Regexp, maxLines, contextN int) ([]string, error) {
 	st, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -390,17 +440,52 @@ func contentMatches(path, query string, maxLines int) ([]string, error) {
 	if isBinary(data) {
 		return nil, nil
 	}
-	var out []string
+	hit := func(ln string) bool {
+		if re != nil {
+			return re.MatchString(ln)
+		}
+		return strings.Contains(ln, query)
+	}
 	lines := strings.Split(string(data), "\n")
+	var hitIdx []int
 	for i, ln := range lines {
-		if strings.Contains(ln, query) {
-			t := strings.TrimSpace(ln)
-			if len(t) > 200 {
-				t = t[:200]
-			}
-			out = append(out, fmt.Sprintf("%d:%s", i+1, t))
-			if len(out) >= maxLines {
+		if hit(ln) {
+			hitIdx = append(hitIdx, i)
+			if len(hitIdx) >= maxLines {
 				break
+			}
+		}
+	}
+	var out []string
+	emit := map[int]bool{}
+	short := func(s string) string {
+		t := strings.TrimSpace(s)
+		if len(t) > 200 {
+			t = t[:200]
+		}
+		return t
+	}
+	for _, h := range hitIdx {
+		lo, hi := h, h
+		if contextN > 0 {
+			lo = h - contextN
+			if lo < 0 {
+				lo = 0
+			}
+			hi = h + contextN
+			if hi >= len(lines) {
+				hi = len(lines) - 1
+			}
+		}
+		for i := lo; i <= hi; i++ {
+			if emit[i] {
+				continue
+			}
+			emit[i] = true
+			if i == h {
+				out = append(out, fmt.Sprintf("%d:%s", i+1, short(lines[i])))
+			} else {
+				out = append(out, fmt.Sprintf("%d~%s", i+1, short(lines[i])))
 			}
 		}
 	}

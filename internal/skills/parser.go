@@ -26,6 +26,9 @@ type Skill struct {
 	Params      map[string]tools.Param
 	Body        string
 	Path        string
+	// Card holds optional publisher metadata from skill-card.md (nil when the
+	// skill directory has no card file). Populated by LoadDir.
+	Card *Card
 }
 
 // ParseDir reads the SKILL.md inside dir (accepting SKILL.md or skill.md).

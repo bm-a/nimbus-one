@@ -52,6 +52,10 @@ type Chunk struct {
 	Done      bool
 	Err       error
 	RawTokens int
+	// Usage carries normalized token accounting when the provider
+	// reported a usage object (non-stream body or stream usage chunk).
+	// RawTokens remains a len/4 heuristic fallback when Usage is zero.
+	Usage Usage
 }
 
 // Provider is implemented by every LLM backend.

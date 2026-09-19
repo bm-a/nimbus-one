@@ -45,6 +45,10 @@ func (r *SkillRegistry) LoadDir(root string) error {
 		if err != nil {
 			continue
 		}
+		// Attach the publisher card when present; absence is normal.
+		if card, cerr := ParseCard(filepath.Dir(p)); cerr == nil {
+			sk.Card = card
+		}
 		r.Skills[sk.Name] = sk
 	}
 	return nil

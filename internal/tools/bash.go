@@ -101,6 +101,7 @@ func (t *BashTool) Execute(ctx context.Context, args map[string]any) (string, er
 	cmd.Stderr = &buf
 	err := cmd.Run()
 	out := truncateBytes(buf.String(), BashOutputLimit)
+	DefaultAudit.Record("exec", truncatePreview(cmdStr, 200), err == nil && ctx.Err() == nil, execReason(err, ctx))
 	if ctx.Err() == context.DeadlineExceeded {
 		return out, fmt.Errorf("bash: timeout after %s", timeout)
 	}
@@ -164,6 +165,17 @@ func truncateBytes(s string, limit int) string {
 		return s
 	}
 	return s[:limit] + fmt.Sprintf("\n...[truncated %d bytes]", len(s)-limit)
+}
+
+// execReason summarizes a bash outcome for the audit log.
+func execReason(err error, ctx context.Context) string {
+	if ctx.Err() == context.DeadlineExceeded {
+		return "timeout"
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 // stringArg extracts an optional string argument.

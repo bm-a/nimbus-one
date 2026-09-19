@@ -21,6 +21,20 @@ import (
 type Discord struct {
 	Token  string
 	Broker *Broker
+	// BaseURL overrides https://discord.com/api/v10 (tests).
+	BaseURL string
+	// GuildRoutes maps a guild (server) ID to a broker user prefix so
+	// the engine can tell servers apart, e.g. {"G1": "g1/"} routes
+	// guild G1's user U as "g1/U". See RouteUser in discord_rich.go.
+	GuildRoutes map[string]string
+}
+
+// restBase returns the REST root, honoring the test override.
+func (d *Discord) restBase() string {
+	if d != nil && strings.TrimSpace(d.BaseURL) != "" {
+		return strings.TrimSuffix(strings.TrimSpace(d.BaseURL), "/")
+	}
+	return "https://discord.com/api/v10"
 }
 
 // chunkDiscord splits s into <=limit byte chunks, preferring newlines.
@@ -80,7 +94,7 @@ func (d *Discord) sendOne(ctx context.Context, channelID, content string) error 
 	if err != nil {
 		return err
 	}
-	endpoint := "https://discord.com/api/v10/channels/" + channelID + "/messages"
+	endpoint := d.restBase() + "/channels/" + channelID + "/messages"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return err

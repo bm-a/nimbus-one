@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -38,6 +39,15 @@ type Telegram struct {
 	Health *HealthMonitor
 	// BotName enables @mention gating in groups (e.g. "nimbusbot").
 	BotName string
+	// OffsetFile persists the getUpdates offset across restarts.
+	// Empty = no persistence (offset lives in memory only). The package
+	// has no data-dir access, so the caller wires the path. File holds a
+	// decimal update offset, written atomically with 0600 permissions.
+	OffsetFile string
+	// Commands is the /command registry; prefer RegisterCommand over
+	// direct writes (it is mutex-guarded). See telegram_rich.go.
+	Commands map[string]TelegramCommand
+	cmdMu    sync.Mutex
 }
 
 // api builds a Bot API URL, honoring test overrides.
@@ -78,8 +88,122 @@ type tgMessage struct {
 
 // tgUpdate is a getUpdates/webhook update.
 type tgUpdate struct {
-	UpdateID int64      `json:"update_id"`
-	Message  *tgMessage `json:"message,omitempty"`
+	UpdateID      int64            `json:"update_id"`
+	Message       *tgMessage       `json:"message,omitempty"`
+	EditedMessage *tgMessage       `json:"edited_message,omitempty"`
+	CallbackQuery *tgCallbackQuery `json:"callback_query,omitempty"`
+	PollAnswer    *tgPollAnswer    `json:"poll_answer,omitempty"`
+}
+
+// loadOffset reads the persisted getUpdates offset. Missing, corrupt, or
+// negative content — or an empty OffsetFile — yields 0 (full re-fetch,
+// deduped by Telegram's own offset handling on the next poll).
+func (t *Telegram) loadOffset() int64 {
+	if t == nil || strings.TrimSpace(t.OffsetFile) == "" {
+		return 0
+	}
+	data, err := os.ReadFile(t.OffsetFile)
+	if err != nil {
+		return 0
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// saveOffset persists the getUpdates offset atomically (0600). Empty
+// OffsetFile is a no-op returning nil.
+func (t *Telegram) saveOffset(offset int64) error {
+	if t == nil || strings.TrimSpace(t.OffsetFile) == "" {
+		return nil
+	}
+	dir := filepath.Dir(t.OffsetFile)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("telegram offset: mkdir: %w", err)
+		}
+	}
+	tmp, err := os.CreateTemp(dir, ".offset-*.tmp")
+	if err != nil {
+		return fmt.Errorf("telegram offset: temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	if _, err := io.WriteString(tmp, strconv.FormatInt(offset, 10)+"\n"); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("telegram offset: write: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("telegram offset: close: %w", err)
+	}
+	if err := os.Chmod(tmpName, 0o600); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("telegram offset: chmod: %w", err)
+	}
+	if err := os.Rename(tmpName, t.OffsetFile); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("telegram offset: rename: %w", err)
+	}
+	_ = os.Chmod(t.OffsetFile, 0o600)
+	return nil
+}
+
+// parseRetryAfter converts a 429 response's Retry-After header to a wait
+// duration. Accepts delta-seconds or an HTTP date; unknown, negative, or
+// missing values yield 0 (caller falls back to a default). Capped at 5m.
+func parseRetryAfter(resp *http.Response) time.Duration {
+	if resp == nil {
+		return 0
+	}
+	s := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if s == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(s); err == nil {
+		if secs < 0 {
+			return 0
+		}
+		if secs > 300 {
+			secs = 300
+		}
+		return time.Duration(secs) * time.Second
+	}
+	if ts, err := http.ParseTime(s); err == nil {
+		d := time.Until(ts)
+		if d < 0 {
+			return 0
+		}
+		if d > 5*time.Minute {
+			d = 5 * time.Minute
+		}
+		return d
+	}
+	return 0
+}
+
+// sendTyping posts a "typing" chat action. Best effort: errors are dropped
+// so a failed indicator never blocks the reply.
+func (t *Telegram) sendTyping(ctx context.Context, chatID int64) {
+	if t == nil || strings.TrimSpace(t.Token) == "" {
+		return
+	}
+	_, _ = t.postTelegramMethod(ctx, "sendChatAction", map[string]any{
+		"chat_id": chatID,
+		"action":  "typing",
+	})
+}
+
+// GroupContext exposes the per-group tool scoping policy for chatID so the
+// engine can scope tool access (AllowedTools/DeniedTools/SystemPrompt).
+// Returns an error when no policy store is configured.
+func (t *Telegram) GroupContext(chatID int64) (GroupPolicy, error) {
+	if t == nil || t.Policy == nil {
+		return GroupPolicy{}, fmt.Errorf("telegram: no policy store configured")
+	}
+	return t.Policy.GroupConfig(chatID), nil
 }
 
 // Allowed reports whether sender id may use the bot. Empty Allow = all.
@@ -166,7 +290,21 @@ func (t *Telegram) sendMessage(ctx context.Context, chatID int64, text string) e
 
 // handleUpdate routes one update's text (or transcribed voice) through the
 // broker and replies chunked. /speak <text> answers with a voice message.
+// Callback queries, poll answers, and edited messages are routed via
+// telegram_rich.go; /commands dispatch through the command registry.
 func (t *Telegram) handleUpdate(ctx context.Context, u tgUpdate) {
+	if u.CallbackQuery != nil {
+		t.handleCallback(ctx, *u.CallbackQuery)
+		return
+	}
+	if u.PollAnswer != nil {
+		t.handlePollAnswer(ctx, *u.PollAnswer)
+		return
+	}
+	if u.EditedMessage != nil {
+		t.handleEdited(ctx, *u.EditedMessage)
+		return
+	}
 	if u.Message == nil {
 		return
 	}
@@ -203,9 +341,13 @@ func (t *Telegram) handleUpdate(ctx context.Context, u tgUpdate) {
 		_ = t.sendMessage(ctx, u.Message.Chat.ID, "usage: /speak <text> — I reply with a voice message")
 		return
 	}
+	if t.runCommand(ctx, u.Message.Chat.ID, sender, text) {
+		return // handled by the /command registry (incl. /reset, /help)
+	}
 	if t.Policy != nil && !t.Policy.ShouldMention(text, t.BotName) {
 		return // group requires @mention — silent skip, like OpenClaw
 	}
+	t.sendTyping(ctx, u.Message.Chat.ID)
 	reply := t.Broker.Handle("telegram", sender, text)
 	limit := 4000
 	if t.Policy != nil {
@@ -255,7 +397,11 @@ func (t *Telegram) handleVoice(ctx context.Context, chatID int64, sender string,
 		dur = fmt.Sprintf("0:%02d", v.Duration)
 	}
 	reply := t.Broker.Handle("telegram", sender, "[voice "+dur+"] "+text)
-	for _, chunk := range chunkMessage(reply, 4000) {
+	limit := 4000
+	if t.Policy != nil {
+		limit = t.Policy.ChunkLimit()
+	}
+	for _, chunk := range chunkMessage(reply, limit) {
 		_ = t.sendMessage(ctx, chatID, chunk)
 	}
 	return "[voice " + dur + "] " + text
@@ -390,12 +536,14 @@ func removeFile(path string) {
 	}
 }
 
-// RunPolling long-polls getUpdates until ctx is done.
+// RunPolling long-polls getUpdates until ctx is done. The offset is loaded
+// from OffsetFile at start and persisted after each batch. A 429 response
+// honors the Retry-After header before continuing.
 func (t *Telegram) RunPolling(ctx context.Context) error {
 	if t.Token == "" {
 		return fmt.Errorf("telegram: empty token")
 	}
-	var offset int64
+	offset := t.loadOffset()
 	timeout := t.pollTimeout()
 	for {
 		select {
@@ -406,6 +554,7 @@ func (t *Telegram) RunPolling(ctx context.Context) error {
 		q := url.Values{}
 		q.Set("offset", strconv.FormatInt(offset, 10))
 		q.Set("timeout", strconv.Itoa(timeout))
+		q.Set("allowed_updates", `["message","edited_message","callback_query","poll_answer"]`)
 		endpoint := t.api("getUpdates") + "?" + q.Encode()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 		if err != nil {
@@ -426,6 +575,21 @@ func (t *Telegram) RunPolling(ctx context.Context) error {
 		} else {
 			func() {
 				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusTooManyRequests {
+					io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+					if t.Health != nil {
+						t.Health.RecordFailure(fmt.Errorf("telegram getUpdates: status 429"))
+					}
+					wait := parseRetryAfter(resp)
+					if wait <= 0 {
+						wait = 2 * time.Second
+					}
+					select {
+					case <-ctx.Done():
+					case <-time.After(wait):
+					}
+					return
+				}
 				var payload struct {
 					OK     bool       `json:"ok"`
 					Result []tgUpdate `json:"result"`
@@ -448,6 +612,9 @@ func (t *Telegram) RunPolling(ctx context.Context) error {
 					default:
 					}
 				}
+				// Durability is best effort: a failed save only means the
+				// next restart re-fetches and skips already-seen updates.
+				_ = t.saveOffset(offset)
 			}()
 		}
 	}

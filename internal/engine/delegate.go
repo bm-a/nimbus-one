@@ -32,9 +32,13 @@ func depthOf(ctx context.Context) int {
 // DelegateTool spawns a subagent: an isolated Engine run with its own
 // scratchpad over the same tools, either synchronously or in the background
 // via Tasks. This is the multi-agent primitive — fan out, then synthesize.
+// ContextMode selects the child context (see context.go: isolated default,
+// fork same-agent, light brief-only); it can also be set per-call with the
+// "context_mode" arg, which overrides this field.
 type DelegateTool struct {
-	Eng   *Engine // usually the parent engine itself; depth cap stops recursion
-	Tasks *Tasks
+	Eng         *Engine // usually the parent engine itself; depth cap stops recursion
+	Tasks       *Tasks
+	ContextMode string
 }
 
 // Name implements tools.Tool.
@@ -48,8 +52,9 @@ func (d *DelegateTool) Description() string {
 
 func (d *DelegateTool) Parameters() map[string]tools.Param {
 	return map[string]tools.Param{
-		"brief":      {Type: "string", Description: "Self-contained task brief for the subagent.", Required: true},
-		"background": {Type: "boolean", Description: "Run in background; returns a task id for tasks_poll."},
+		"brief":        {Type: "string", Description: "Self-contained task brief for the subagent.", Required: true},
+		"background":   {Type: "boolean", Description: "Run in background; returns a task id for tasks_poll."},
+		"context_mode": {Type: "string", Description: "Child context: isolated (default) | fork (same-agent) | light (brief-only)."},
 	}
 }
 
@@ -74,12 +79,27 @@ func (d *DelegateTool) Execute(ctx context.Context, args map[string]any) (string
 			"finish this piece of work yourself and report back", nil
 	}
 	bg, _ := args["background"].(bool)
+	mode := d.ContextMode
+	if m, _ := args["context_mode"].(string); strings.TrimSpace(m) != "" {
+		mode = m
+	}
+	// A delegated subagent runs in-process as the same agent, so fork is
+	// valid; Resolve still degrades bad input to isolated with a note.
+	spec, note := ChildSpec{Mode: mode}.Resolve(ChildIsolated, true)
+	system := "You are a subagent. Complete the brief below and report back concisely: what you did, what you verified, what's left. Do not delegate further."
+	switch spec.Mode {
+	case ChildLight:
+		system = "You are a subagent with no prior conversation context. Complete the brief below and report back concisely."
+	case ChildFork:
+		system = "You are a subagent continuing this agent's work with shared context. Complete the brief below and report back concisely: what you did, what you verified, what's left."
+	}
+	if note != "" {
+		system += " (" + note + ")"
+	}
 	run := func(c context.Context) (string, error) {
 		sub, cancel := context.WithTimeout(c, 5*time.Minute)
 		defer cancel()
-		out, err := d.Eng.Run(sub,
-			"You are a subagent. Complete the brief below and report back concisely: what you did, what you verified, what's left. Do not delegate further.",
-			brief)
+		out, err := d.Eng.Run(sub, system, brief)
 		if err != nil {
 			return "", err
 		}
