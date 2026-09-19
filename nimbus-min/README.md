@@ -7,18 +7,31 @@ Nimbus-One reads and changes files **only inside one folder you choose**
 to **type "yes" before every shell command**. Nothing else. No channels,
 no memory, no database, no scheduling, no telemetry.
 
-## Install
+## Install — one copy-paste
 
-You need [Go](https://go.dev/dl/) 1.24 or newer. Then:
+You need `git` + [Go](https://go.dev/dl/) 1.24 or newer. Paste this
+whole block:
 
 ```sh
 git clone https://github.com/bm-a/nimbus-one.git
 cd nimbus-one
-go build -o nimbus-min ./nimbus-min
+sh nimbus-min/install.sh
+./nimbus-min/nimbus-min onboard
+./nimbus-min/nimbus-min run "list my files"
 ```
 
-This makes a single file called `nimbus-min`. Put it anywhere you like
-(e.g. `~/bin`, or just leave it in the folder).
+The script clones (or updates), builds (stdlib only — nothing to
+download), and offers first-run setup. Prefer to inspect first? Read
+[`install.sh`](install.sh) — it's short and commented. Windows:
+[`install.ps1`](install.ps1). Manual build instead:
+
+```sh
+cd nimbus-min
+CGO_ENABLED=0 go build -o nimbus-min .
+```
+
+This makes a single file called `nimbus-min` (~10MB). Put it anywhere
+you like (e.g. `~/bin`, or just leave it in the folder).
 
 ## Start (first time)
 

@@ -1,91 +1,73 @@
 # Nimbus-One Wiki — Home
 
-Nimbus-One is a lightweight autonomous AI agent in one
-static Go binary (`CGO_ENABLED=0`).
+Nimbus-One is a minimal coding assistant: **one workspace, one model
+(Anthropic Claude), five tools** (read, write, edit, list, shell).
+One static binary, pure Go, zero dependencies. Before every shell
+command it shows you the exact command and waits for your typed `yes`.
 
-It is the practical replacement for heavy
-OpenClaw / Hermes-class stacks: no Node.js, no Python,
-no Chromium, no new hardware.
+- Your files stay in one folder you choose — nothing outside it is touched.
+- The only network contact is `api.anthropic.com:443` (enforced in code).
+- No channels, no memory across runs, no database, no telemetry.
 
-Any Android phone running Termux works.
-So does every laptop and server.
-
-- Your keys, your models, your choice.
-- Zero pre-selected fallbacks — nothing is applied silently.
-- Local-first: Markdown state, JSONL history, skills on your disk.
-- No telemetry. No accounts. No callbacks.
-
-> **Suggestion vs your choice:** the Muse route
-> (`meta/muse-spark-1.3-contributor` via OpenRouter)
-> is a *recommendation* shown in the wizard, `models`,
-> and escalation cards. Fallbacks are *always your choice* —
-> confirmed in `nimbus-one config`, `fallback_models`,
-> or `NIMBUS_FALLBACK_MODELS`. Never auto-applied.
+> **Scope rule:** if a feature isn't read/write/edit/list/shell
+> through the Anthropic loop, Nimbus-One doesn't have it. Anything
+> beyond that needs explicit approval — see
+> [`nimbus-min/DECISIONS.md`](../nimbus-min/DECISIONS.md).
 
 ## Wiki map
 
-- [User Guide](User-Guide.md) — setup, plan/build, chat,
-  serve, Telegram, skills, secrets, every knob.
-- [Operator Guide](Operator-Guide.md) — hardening, backups,
-  updates, monitoring, battery, LAN + mDNS.
-- [Agent Guide](Agent-Guide.md) — for AI coding agents working
-  with nimbus-one or in this repo. Cheat-sheet, error policy,
-  plan/build discipline, skills format, all 18 knowledge IDs.
-- [Mobile Termux](Mobile-Termux.md) — phone-first ops:
-  install, footprint, wake-lock, throttling, offline Ollama.
-- [Voice](Voice.md) — speech-to-text and text-to-speech: Telegram voice
-  notes, `/speak` replies, web console mic/speaker, engines and setup.
-- [FAQ](FAQ.md) — 15+ honest answers on fallbacks, privacy,
-  cost, platforms, no-keys mode, data loss, updates.
+- [User Guide](User-Guide.md) — install, onboard, daily `run`, shell approvals, config, troubleshoot.
+- [Mobile Termux](Mobile-Termux.md) — phone-first install, footprint, background serve.
+- [Operator Guide](Operator-Guide.md) — running `serve`: token, loopback, control page, app bridge.
+- [Agent Guide](Agent-Guide.md) — contributing to `nimbus-min/`: layout, jail rules, tests.
+- [Advanced Features](Advanced-Features.md) — what exists beyond basics (app protocol) and what's out of scope.
+- [FAQ](FAQ.md) — honest answers: cost, privacy, platforms, limits.
+- [Voice](Voice.md) — status: not in scope (and why).
 
-Source truth: `README.md`, `AGENTS.md`, `docs/COMMANDS.md`,
-`docs/ARCHITECTURE.md`, `docs/TROUBLESHOOTING.md`,
-`internal/doctor/knowledge.go`.
+Source truth: [`nimbus-min/README.md`](../nimbus-min/README.md),
+[`nimbus-min/SECURITY.md`](../nimbus-min/SECURITY.md),
+[`nimbus-min/DECISIONS.md`](../nimbus-min/DECISIONS.md).
 
 ## 60-second quick start
 
-Build first (explicit steps only — no pipe-to-shell installer):
+Paste this whole block (needs `git` + Go 1.24+):
 
 ```sh
-git clone https://github.com/<you>/nimbus-one.git
+git clone https://github.com/bm-a/nimbus-one.git
 cd nimbus-one
-go build -o nimbus-one ./cmd/nimbus-one
-```
-
-Then:
-
-```sh
-./nimbus-one init --auto
-./nimbus-one config
-./nimbus-one run "hello"
-./nimbus-one serve
+sh nimbus-min/install.sh
+./nimbus-min/nimbus-min onboard
+./nimbus-min/nimbus-min run "list my files"
 ```
 
 What each step does:
 
-1. `init --auto` — scaffolds data dir + workspace,
-   probes Ollama / OpenCode / keys / LAN, fills blanks only.
-2. `config` — visual wizard: provider, masked key entry
-   with live validation, YOUR fallback order.
-3. `run "hello"` — first one-shot task (default mode: build).
-4. `serve` — HTTP API on `127.0.0.1:8787` + Telegram
-   (if configured) + heartbeat + LAN discovery.
+1. Clone + build (stdlib only — nothing to download).
+2. `onboard` — safety summary → Anthropic API key → workspace folder → writes config.
+3. `run "list my files"` — first real agent turn through files you own.
 
-Next: pick [User Guide](User-Guide.md) for daily use,
+Prefer to inspect first? Read [`nimbus-min/install.sh`](../nimbus-min/install.sh)
+(it's short and commented). Windows: [`nimbus-min/install.ps1`](../nimbus-min/install.ps1).
+
+Next: [User Guide](User-Guide.md) for daily use,
 [Mobile Termux](Mobile-Termux.md) if you are on a phone,
-or [Agent Guide](Agent-Guide.md) if you are an AI agent.
+[FAQ](FAQ.md) for honest limits.
 
 ## Commands at a glance
 
-All verified against `cmd/nimbus-one/main.go`.
-Full detail: `nimbus-one help [command]` and
-[Agent Guide](Agent-Guide.md#command-cheat-sheet).
+`nimbus-min` has five commands. That's all — verify with `help`:
 
-- `init [--auto]` · `auto` · `config` — setup.
-- `run [--mode plan|build] [--model M] <msg>` · `exec` — tasks.
-- `serve [--mode ...] [--no-mdns]` — daemon + API + channels.
-- `skills` · `secrets set|get|del|list` · `models` · `discover`
-- `doctor [--bundle FILE]` · `fix <symptom>` · `update [--yes] [--repo OWNER/NAME]`
-- `status` · `dashboard` · `version` · `help`
+- `onboard` — first-time setup (key, workspace).
+- `run "<request>"` — do a coding task in your workspace.
+- `serve [addr]` — control page + app bridge (default `127.0.0.1:8787`).
+- `version` · `help`
+
+The model inside `run` sees exactly five tools: `read`, `write`,
+`edit`, `list`, `shell`.
 
 See also: [FAQ](FAQ.md) · [Operator Guide](Operator-Guide.md).
+
+---
+*The legacy prototype tree (`cmd/`, `internal/`, `pkg/`, `docs/`) is
+kept in this repo as reference and is not the product. Legacy docs
+for it live under `docs/`.*

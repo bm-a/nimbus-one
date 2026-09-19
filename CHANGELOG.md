@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## Unreleased — nimbus-min 0.1.0 (the product)
+
+Minimal Anthropic-only coding assistant: one workspace, five tools
+(read/write/edit/list/shell), mandatory typed-`yes` shell gate, jail
+with symlink-escape defense, network locked to `api.anthropic.com:443`
+in code, OpenClaw app protocol subset (`connect`/`chat.send`/
+`sessions.list`) + green control page, `onboard` wizard, tested
+installers (`nimbus-min/install.sh`, `install.ps1`), full wiki.
+Pure Go, zero dependencies, ~10MB static binary. See
+`nimbus-min/README.md`, `SECURITY.md`, `DECISIONS.md`.
 
 ## 0.1.0-beta — first public snapshot (beta)
 
