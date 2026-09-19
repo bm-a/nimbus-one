@@ -17,13 +17,11 @@ diagnostics. Local-first (Markdown state, JSONL history, encrypted secrets);
 no telemetry, no accounts, no callbacks.
 
 **Version state: `0.1.0-beta`** (`const version` in `cmd/nimbus-one/main.go:43`).
-README carries the beta banner: everything works, flags/APIs may still shift.
-Six commits on `main` (see §3). This handoff written right after the
-**mega-build**: 7 parallel builders cloned OpenClaw byte-by-byte
-(source at `~/tmp/openclaw-src`, 46k files, KEEP IT for reference) into
-pillars 1–5 + depth layers. All verified: vet clean, full suite green,
-selftest 15/15, binary builds. Commit + push pending at handoff time —
-if `git status` is dirty, verify (§6) then commit.
+README carries the beta banner. Ten commits on `main` (see §3/§9).
+Working tree clean at handoff time. If `git status` is dirty, verify
+(§6) then commit. New deps since the mega-build: `modernc.org/sqlite`
+(session store) — allowed by AGENTS.md rule 1; `go 1.24.2` directive
+pinned (CI uses Go 1.24).
 
 ---
 
@@ -302,6 +300,34 @@ usage surfacing), then FEATURES.md scoreboard refresh, then commit.
 ## 8. Open questions for the user
 
 (a) ClawHub registry client (search/install/verify): build or skip?
-Network trust design needed — biggest open scope call. (b) iMessage:
-still last/disabled-by-default? (c) Plugin contract/registry:
-confirm intentional divergence (stdlib single binary) stays.
+(b) iMessage: still last/disabled-by-default? (c) Plugin contract/registry:
+confirm intentional divergence stays. (d) OpenRouter credits are exhausted
+(HTTP 402 on live runs) — real-model emulation of Phase 2 long sessions,
+Phase 3 delegation, and git-tool flows is pending credits.
+
+## 9. Platform rebuild, Phases 0–3 (2026-09-20, commits to `8411644`)
+
+Direction change: NOT an OpenClaw rewrite — a Go-native coding-first
+runtime (OpenCode loop concepts + OpenClaw reach concepts). All green:
+vet/test/selftest 15/15/cross ×5, pushed.
+
+- Phase 0 (`402c9bf`): `internal/perms` triples (allow/ask/deny,
+  last-match-wins, fail-closed), `internal/session` SQLite via
+  `modernc.org/sqlite v1.46.0` (pinned go1.24 set: x/sys v0.38.0,
+  libc v1.67.6), modes as ruleset presets, run persists turns.
+- Phase 1 (`272e444`): `internal/prompt` env+variants, `internal/llm`
+  ModelProfile table (gpt→patch shape), `internal/vcs` git awareness,
+  `internal/verify` post-edit checkers in edit/patch/write receipts,
+  `PatchTool` envelope, `GitTool`, `internal/context` spillover in bash,
+  jail on opencode-dir + transcribe-path, whitespace-trim path fix.
+- Phase 2 (`01e9cd4`): context estimator + Budget states, prune old tool
+  outputs, summary-compaction with extractive fallback, verbose skills,
+  402 billing error made actionable.
+- Phase 3 (`8411644`): delegate agent kinds (explore read-only by
+  construction), `llm.RouteModel` + config `routes:`, engine hooks
+  (session.start/tool.after, observe-only), cron registry + tool,
+  `session.Lanes`, routes in status, COMMANDS.md agent-tools section.
+- Emulator findings fixed: stray-space ENOENT, raw 402 JSON dump.
+- Deferred (documented in code): child session persistence, cron SQLite
+  + daemon execution, serve/broker lanes wiring, git worktrees, dynamic
+  task descriptions, official MCP SDK, tsnet/chromedp.
