@@ -30,6 +30,14 @@ type Telegram struct {
 	// Speaker renders text to an audio file for /speak replies.
 	// Nil = /speak answers with setup guidance.
 	Speaker func(ctx context.Context, text string) (string, error)
+	// Policy gates groups, chunk sizes, streaming and mentions.
+	// Nil = open groups, default 4000 chunks, no mention gate.
+	Policy *PolicyStore
+	// Health tracks consecutive failures for the monitor.
+	// Nil = no health tracking.
+	Health *HealthMonitor
+	// BotName enables @mention gating in groups (e.g. "nimbusbot").
+	BotName string
 }
 
 // api builds a Bot API URL, honoring test overrides.
@@ -171,6 +179,9 @@ func (t *Telegram) handleUpdate(ctx context.Context, u tgUpdate) {
 	if !t.Allowed(sender) {
 		return
 	}
+	if t.Policy != nil && !t.Policy.IsGroupAllowed(u.Message.Chat.ID, u.Message.Chat.Type) {
+		return // group not allowlisted / groups disabled
+	}
 	if t.Broker == nil {
 		return
 	}
@@ -192,14 +203,28 @@ func (t *Telegram) handleUpdate(ctx context.Context, u tgUpdate) {
 		_ = t.sendMessage(ctx, u.Message.Chat.ID, "usage: /speak <text> — I reply with a voice message")
 		return
 	}
+	if t.Policy != nil && !t.Policy.ShouldMention(text, t.BotName) {
+		return // group requires @mention — silent skip, like OpenClaw
+	}
 	reply := t.Broker.Handle("telegram", sender, text)
-	for _, chunk := range chunkMessage(reply, 4000) {
+	limit := 4000
+	if t.Policy != nil {
+		limit = t.Policy.ChunkLimit()
+	}
+	for _, chunk := range chunkMessage(reply, limit) {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		_ = t.sendMessage(ctx, u.Message.Chat.ID, chunk)
+		err := t.sendMessage(ctx, u.Message.Chat.ID, chunk)
+		if t.Health != nil {
+			if err != nil {
+				t.Health.RecordFailure(err)
+			} else {
+				t.Health.RecordSuccess()
+			}
+		}
 	}
 }
 

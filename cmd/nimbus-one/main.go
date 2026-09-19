@@ -967,6 +967,10 @@ func cmdServe(args []string) int {
 	// Telegram polling (allowlist enforced inside).
 	if tok := telegramToken(a); tok != "" {
 		tg := &gateway.Telegram{Token: tok, Broker: broker, Allow: a.cfg.TelegramAllow}
+		tg.Policy = &gateway.PolicyStore{}
+		tg.Health = &gateway.HealthMonitor{Notify: func(msg string) {
+			fmt.Fprintf(os.Stderr, "WARNING: %s\n", secure.Redact(msg))
+		}}
 		tg.Transcriber = func(ctx context.Context, oggPath string) (string, error) {
 			return media.Transcribe(ctx, oggPath, media.STTConfig{APIKey: voiceKey})
 		}
@@ -982,11 +986,16 @@ func cmdServe(args []string) int {
 	} else {
 		fmt.Fprintln(os.Stderr, "telegram off (no token — `nimbus-one secrets set telegram <token>`)")
 	}
-	// Discord REST (gateway idles honestly without a WS token scope).
+	// Discord: full WS gateway (inbound) + REST sender. Falls back to
+	// REST-only idle when the gateway can't connect (logged, never fatal).
 	if tok := discordToken(a); tok != "" {
-		d := &gateway.Discord{Token: tok, Broker: broker}
-		go func() { _ = d.RunGateway(ctx) }()
-		fmt.Fprintln(os.Stderr, "discord on")
+		gw := &gateway.Gateway{Token: tok, Broker: broker}
+		go func() {
+			if err := gw.Connect(ctx); err != nil && ctx.Err() == nil {
+				fmt.Fprintf(os.Stderr, "WARNING: discord gateway: %v (REST send still works)\n", secure.Redact(err.Error()))
+			}
+		}()
+		fmt.Fprintln(os.Stderr, "discord gateway on")
 	}
 	// REPL attached to the same broker when interactive.
 	if isTTY() {

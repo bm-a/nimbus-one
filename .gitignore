@@ -1,4 +1,6 @@
 # Binaries and build output
+nimbus-one
+nimbus-one.exe
 aether
 aether.exe
 dist/
