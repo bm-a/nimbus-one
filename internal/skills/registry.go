@@ -90,6 +90,48 @@ func (r *SkillRegistry) CapabilitiesPrompt() string {
 	return b.String()
 }
 
+// CapabilitiesPromptVerbose lists skills with triggers plus a capped body
+// excerpt. Models ingest verbose-here/terse-in-tool-description better
+// than the reverse (OpenCode skill-prompt finding). Excerpts are capped so
+// a large skill library cannot starve the context budget.
+func (r *SkillRegistry) CapabilitiesPromptVerbose() string {
+	var b strings.Builder
+	b.WriteString("## Skills\n")
+	names := r.Names()
+	if len(names) == 0 {
+		b.WriteString("(none loaded)\n")
+		return b.String()
+	}
+	for _, n := range names {
+		sk := r.Skills[n]
+		b.WriteString("- " + sk.Name + ": " + sk.Description)
+		if len(sk.Triggers) > 0 {
+			b.WriteString(" (triggers: " + strings.Join(sk.Triggers, ", ") + ")")
+		}
+		if excerpt := skillExcerpt(sk.Body); excerpt != "" {
+			b.WriteString("\n  use: " + excerpt)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// skillExcerpt returns the first paragraph of a skill body, capped.
+func skillExcerpt(body string) string {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return ""
+	}
+	if idx := strings.Index(body, "\n\n"); idx >= 0 {
+		body = body[:idx]
+	}
+	body = strings.Join(strings.Fields(body), " ")
+	if len(body) > 240 {
+		body = body[:240] + "…"
+	}
+	return body
+}
+
 // discoverSkillFiles lists SKILL.md files one and two levels below root.
 func discoverSkillFiles(root string) []string {
 	var out []string

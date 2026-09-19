@@ -478,7 +478,7 @@ func (a *app) buildSystem() string {
 	soul, _ := a.ws.Load("SOUL.md")
 	user, _ := a.ws.Load("USER.md")
 	memory, _ := a.ws.Load("MEMORY.md")
-	return a.assemblePrompt(engine.BuildPrompt(soul, user, memory, nil, a.skillz.CapabilitiesPrompt()))
+	return a.assemblePrompt(engine.BuildPrompt(soul, user, memory, nil, a.skillz.CapabilitiesPromptVerbose()))
 }
 
 // assemblePrompt appends the model-variant addendum and environment facts
@@ -497,7 +497,7 @@ func (a *app) assemblePrompt(base string) string {
 // refreshMemory injects top recalled facts into the system prompt.
 func (a *app) refreshMemory(query string) {
 	facts := a.memory.Recall(query, 5)
-	a.system = a.assemblePrompt(engine.BuildPrompt(mustLoad(a.ws, "SOUL.md"), mustLoad(a.ws, "USER.md"), mustLoad(a.ws, "MEMORY.md"), facts, a.skillz.CapabilitiesPrompt()))
+	a.system = a.assemblePrompt(engine.BuildPrompt(mustLoad(a.ws, "SOUL.md"), mustLoad(a.ws, "USER.md"), mustLoad(a.ws, "MEMORY.md"), facts, a.skillz.CapabilitiesPromptVerbose()))
 }
 
 func mustLoad(ws *state.Workspace, name string) string {
@@ -758,6 +758,11 @@ func cmdRun(cmd string, args []string) int {
 		if ex, ok := asExhausted(err); ok {
 			return escalate(ctx, a, prompt, ex.Detail)
 		}
+		if isBillingError(err) {
+			fmt.Fprintln(os.Stderr, "error: provider billing blocked this request (HTTP 402: out of credits).")
+			fmt.Fprintln(os.Stderr, "fix: add credits on your provider dashboard, switch --model to a free/local model, or run `nimbus-one models` to review options.")
+			return 1
+		}
 		fmt.Fprintln(os.Stderr, "error:", secure.Redact(err.Error()))
 		return 1
 	}
@@ -786,6 +791,18 @@ func attachSession(a *app, cmd string) {
 	a.eng.Session = st
 	a.eng.SessionID = sid
 	a.eng.Approvals = &perms.Approvals{}
+}
+
+// isBillingError reports provider out-of-credits rejections (HTTP 402).
+// String-matched like the asExhausted fallback: providers encode this in
+// status + body text, not in a typed error.
+func isBillingError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "402") &&
+		(strings.Contains(strings.ToLower(msg), "credit") || strings.Contains(strings.ToLower(msg), "billing"))
 }
 
 func asExhausted(err error) (*pool.ExhaustedError, bool) {

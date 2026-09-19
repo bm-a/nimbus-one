@@ -64,3 +64,19 @@ func TestRegistryLoadDirMissingRootNoError(t *testing.T) {
 		t.Fatalf("LoadDir on missing root should return nil, got %v", err)
 	}
 }
+
+func TestRegistryVerboseExcerptCapped(t *testing.T) {
+	root := t.TempDir()
+	writeSkill(t, filepath.Join(root, "v", "SKILL.md"), "verb", "Verbose skill")
+	reg := NewSkillRegistry(nil)
+	if err := reg.LoadDir(root); err != nil {
+		t.Fatal(err)
+	}
+	v := reg.CapabilitiesPromptVerbose()
+	if !strings.Contains(v, "verb") || !strings.Contains(v, "use:") {
+		t.Fatalf("verbose prompt must include name + body excerpt: %q", v)
+	}
+	if len(v) > 2000 {
+		t.Fatalf("verbose prompt uncapped: %d bytes", len(v))
+	}
+}

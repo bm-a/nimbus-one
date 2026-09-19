@@ -37,6 +37,9 @@ type Engine struct {
 	// (e.g. GPT-family models get apply_patch instead of edit/write).
 	// Empty means the default profile.
 	ModelID string
+	// BudgetWindow overrides the context window for compaction (0 = auto
+	// from the model catalog). Tests set a tiny window to force stages.
+	BudgetWindow int
 }
 
 func (e *Engine) maxSteps() int {
@@ -121,6 +124,7 @@ func (e *Engine) Run(ctx context.Context, system, user string) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
+		msgs = e.maybeCompact(ctx, msgs, defs)
 		e.progress(fmt.Sprintf("step %d/%d: querying model", step+1, e.maxSteps()))
 		text, calls, err := e.LLM.Complete(ctx, llm.ChatRequest{
 			Messages: msgs,

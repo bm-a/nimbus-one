@@ -52,6 +52,7 @@ func (e *Engine) RunStream(ctx context.Context, system, user string, emit func(l
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
+		msgs = e.maybeCompact(ctx, msgs, defs)
 		e.progress(fmt.Sprintf("step %d/%d: streaming model", step+1, e.maxSteps()))
 		ch, err := e.LLM.Chat(ctx, llm.ChatRequest{Messages: msgs, Tools: defs, Stream: true})
 		if err != nil {
