@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -90,5 +91,22 @@ func TestSidecar_EmptyPromptReturnsError(t *testing.T) {
 	_, err := s.Run(context.Background(), "   ", nil)
 	if err == nil {
 		t.Fatal("want error for empty prompt, got nil")
+	}
+}
+
+func TestSidecar_FastExitOutputNotDropped(t *testing.T) {
+	old := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(old)
+
+	bin := writeFakeBin(t, `echo '{"type": "text", "text": "fast-exit"}'`)
+	s := &Sidecar{Bin: bin, Timeout: 10 * time.Second}
+	for i := 0; i < 100; i++ {
+		out, err := s.Run(context.Background(), "do something", nil)
+		if err != nil {
+			t.Fatalf("Run[%d]: %v", i, err)
+		}
+		if strings.TrimSpace(out) != "fast-exit" {
+			t.Fatalf("Run[%d] out = %q, want %q", i, out, "fast-exit")
+		}
 	}
 }
